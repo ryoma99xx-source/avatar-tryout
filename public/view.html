@@ -2,21 +2,28 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D水槽</title>
 <style>
-:root{ --ink:#eaf6ff; --sub:#a9c7da; --panel:rgba(8,30,48,.62); --line:rgba(255,255,255,.18); --accent:#5cc8ff; }
+:root{ --ink:#eaf6ff; --sub:#a9c7da; --panel:rgba(8,30,48,.62); --line:rgba(255,255,255,.18); --accent:#5cc8ff; --food:#ffcf5c; }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0;height:100%;background:#06263d;color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;overflow:hidden}
+html,body{margin:0;height:100%;background:#06263d;color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 canvas{display:block;touch-action:none}
 .bar{position:fixed;left:0;right:0;bottom:0;padding:12px max(14px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));display:flex;gap:8px;flex-wrap:wrap;justify-content:center;background:linear-gradient(transparent,rgba(3,18,30,.75))}
 .top{position:fixed;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px));display:flex;justify-content:space-between;align-items:center;gap:10px}
 button,a.btn{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:9px 16px;cursor:pointer;text-decoration:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-button.on{border-color:var(--accent);color:#fff;background:rgba(40,140,200,.55)}
+button.feed{background:rgba(255,190,60,.88);color:#2a1a00;border-color:transparent;font-weight:700}
+button:active{transform:scale(.97)}
 .msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;pointer-events:none}
 .msg div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;max-width:420px}
-.hint{color:var(--sub);font-size:13px}
+.hint{color:var(--sub);font-size:13px;text-align:right}
+.ring{position:fixed;width:70px;height:70px;margin:-35px 0 0 -35px;border:3px solid rgba(255,255,255,.85);border-radius:50%;pointer-events:none;animation:ring .6s ease-out forwards}
+@keyframes ring{from{transform:scale(.3);opacity:1}to{transform:scale(1.4);opacity:0}}
+.pop{position:fixed;pointer-events:none;font-weight:800;font-size:20px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.45);transform:translate(-50%,-50%);animation:pop 1.1s ease-out forwards;white-space:nowrap}
+@keyframes pop{0%{opacity:0;margin-top:0}15%{opacity:1}100%{opacity:0;margin-top:-60px}}
+@media (max-width:440px){ .bar{gap:6px} .bar button{font-size:13px;padding:8px 11px} }
+@media (prefers-reduced-motion: reduce){ .ring,.pop{animation-duration:.01s} }
 </style>
 <script type="importmap">
 { "imports": {
@@ -28,11 +35,11 @@ button.on{border-color:var(--accent);color:#fff;background:rgba(40,140,200,.55)}
 <body>
 <div class="top">
   <a class="btn" href="./">← 戻る</a>
-  <span class="hint">指でぐるっと回せます</span>
+  <span class="hint">ダブルタップで呼ぶ<br>指で回して見る</span>
 </div>
 <div class="msg" id="msg"><div>3Dモデルを読み込み中…</div></div>
 <div class="bar">
-  <button id="move" class="on">泳ぐ</button>
+  <button id="feed" class="feed">エサをあげる</button>
   <button id="flip">向きを反転</button>
   <button id="mode">動き：魚</button>
 </div>
@@ -44,14 +51,19 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const q = new URLSearchParams(location.search);
 const glbUrl = q.get("u");
+const bodyType = q.get("t") || "";
 const store = {
   get(k, d) { try { const v = localStorage.getItem("tank:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("tank:" + k, JSON.stringify(v)); } catch (e) {} },
 };
-const msg = t => { const m = document.getElementById("msg"); if (!t) { m.hidden = true; return; } m.hidden = false; m.firstElementChild.textContent = t; };
+const $ = id => document.getElementById(id);
+const msg = t => { const m = $("msg"); if (!t) { m.hidden = true; return; } m.hidden = false; m.firstElementChild.textContent = t; };
 if (!glbUrl) msg("3Dモデルが指定されていません。一覧から「3Dで見る」を押してください。");
 
-// ---------- 水槽 ----------
+// =====================================================================
+// 水槽
+// =====================================================================
+const FLOOR_Y = -1.1;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -73,17 +85,14 @@ scene.add(new THREE.HemisphereLight(0xd8f1ff, 0x1d3b2a, 1.4));
 const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(2, 4, 3); scene.add(sun);
 const rim = new THREE.DirectionalLight(0x9fdcff, 1.0); rim.position.set(-3, 1, -2); scene.add(rim);
 
-// 砂の床
 const sand = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.MeshStandardMaterial({ color: 0xcdb98a, roughness: 1 }));
-sand.rotation.x = -Math.PI / 2; sand.position.y = -1.1; scene.add(sand);
-// 小石
+sand.rotation.x = -Math.PI / 2; sand.position.y = FLOOR_Y; scene.add(sand);
 const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8f9a8c, roughness: .9 });
 for (let i = 0; i < 14; i++) {
   const s = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.12, 12, 10), stoneMat);
   const a = Math.random() * Math.PI * 2, r = 1.2 + Math.random() * 2.2;
-  s.position.set(Math.cos(a) * r, -1.08, Math.sin(a) * r); s.scale.y = 0.55; scene.add(s);
+  s.position.set(Math.cos(a) * r, FLOOR_Y + 0.02, Math.sin(a) * r); s.scale.y = 0.55; scene.add(s);
 }
-// 水草
 const weedMat = new THREE.MeshStandardMaterial({ color: 0x3f9b5a, roughness: .7, side: THREE.DoubleSide });
 const weeds = [];
 for (let i = 0; i < 9; i++) {
@@ -91,33 +100,37 @@ for (let i = 0; i < 9; i++) {
   const g = new THREE.PlaneGeometry(0.08, h, 1, 8); g.translate(0, h / 2, 0);
   const w = new THREE.Mesh(g, weedMat);
   const a = Math.random() * Math.PI * 2, r = 1.9 + Math.random() * 1.4;
-  w.position.set(Math.cos(a) * r, -1.1, Math.sin(a) * r); w.rotation.y = Math.random() * Math.PI;
+  w.position.set(Math.cos(a) * r, FLOOR_Y, Math.sin(a) * r); w.rotation.y = Math.random() * Math.PI;
   w.userData.base = g.attributes.position.array.slice(); w.userData.ph = Math.random() * 6;
   scene.add(w); weeds.push(w);
 }
-// 泡
 const bubbleGeo = new THREE.BufferGeometry(); const NB = 60; const bp = new Float32Array(NB * 3);
 for (let i = 0; i < NB; i++) { bp[i * 3] = (Math.random() - .5) * 5; bp[i * 3 + 1] = -1 + Math.random() * 3; bp[i * 3 + 2] = (Math.random() - .5) * 5; }
 bubbleGeo.setAttribute("position", new THREE.BufferAttribute(bp, 3));
-const bubbles = new THREE.Points(bubbleGeo, new THREE.PointsMaterial({ color: 0xe6f7ff, size: 0.035, transparent: true, opacity: .7 }));
-scene.add(bubbles);
+scene.add(new THREE.Points(bubbleGeo, new THREE.PointsMaterial({ color: 0xe6f7ff, size: 0.035, transparent: true, opacity: .7 })));
 
-// ---------- 生き物 ----------
+// 泳げる範囲（画面の幅に合わせる）
+function bounds() {
+  const halfW = Math.min(1.8, camDist() * Math.tan(THREE.MathUtils.degToRad(22.5)) * (innerWidth / innerHeight) * 0.8);
+  return { x: halfW, zMin: -1.3, zMax: 1.0, yMin: -0.75, yMax: 0.9 };
+}
+
+// =====================================================================
+// 生き物
+// =====================================================================
 const holder = new THREE.Group(); scene.add(holder);
-let parts = [];          // {attr, base, s}
-let lenAxis = 0, latAxis = 2;
+let parts = [];
+let lenAxis = 0, latAxis = 2, halfHeight = 0.25;
 let headSign = store.get("head:" + glbUrl, 1);
-let moving = true;
 const MODES = ["fish", "walk", "float"];
 const MODE_LABEL = { fish: "魚", walk: "歩く", float: "ふわふわ" };
-const typeParam = q.get("t") || "";
-let mode = store.get("mode:" + glbUrl, typeParam === "fish" || typeParam === "" ? "fish" : (typeParam === "insect_flying" ? "float" : "walk"));
+const defaultMode = bodyType === "" || bodyType === "fish" ? "fish" : bodyType === "insect_flying" ? "float" : "walk";
+let mode = store.get("mode:" + glbUrl, defaultMode);
 
 function setupCreature(root) {
   root.updateMatrixWorld(true);
   const meshes = [];
   root.traverse(o => { if (o.isMesh) meshes.push(o); });
-  // 各メッシュの変形をジオメトリに焼き込み、同じ座標系で扱えるようにする
   const box = new THREE.Box3();
   for (const m of meshes) {
     m.geometry = m.geometry.clone();
@@ -128,87 +141,336 @@ function setupCreature(root) {
   }
   const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
   lenAxis = size.x >= size.z ? 0 : 2; latAxis = lenAxis === 0 ? 2 : 0;
-  const len = Math.max(size.x, size.z) || 1;
-  const k = 1.0 / len; // 体長を約1.0にそろえる
+  const k = 1.0 / (Math.max(size.x, size.z) || 1); // 体長を約1.0にそろえる
+  halfHeight = size.y * k / 2;
   for (const m of meshes) {
     const g = m.geometry;
-    g.translate(-center.x, -center.y, -center.z); g.scale(k, k, k);
-    g.computeBoundingBox();
-    const attr = g.attributes.position;
-    parts.push({ attr, base: attr.array.slice() });
+    g.translate(-center.x, -center.y, -center.z); g.scale(k, k, k); g.computeBoundingBox();
+    parts.push({ attr: g.attributes.position, base: g.attributes.position.array.slice() });
   }
   computeS();
 }
 function computeS() {
   for (const p of parts) {
     const n = p.attr.count; p.s = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const x = p.base[i * 3 + lenAxis] / 1.0; // -0.5..0.5
-      p.s[i] = Math.min(1, Math.max(0, 0.5 - headSign * x)); // 頭=0, しっぽ=1
-    }
+    for (let i = 0; i < n; i++) p.s[i] = Math.min(1, Math.max(0, 0.5 - headSign * p.base[i * 3 + lenAxis])); // 頭=0, しっぽ=1
   }
 }
-function deform(t, amp) {
+function deform(t, amp, speed) {
   for (const p of parts) {
     const a = p.attr.array, b = p.base, s = p.s, n = p.attr.count;
     for (let i = 0; i < n; i++) {
-      const j = i * 3; const si = s[i];
+      const j = i * 3, si = s[i];
       a[j] = b[j]; a[j + 1] = b[j + 1]; a[j + 2] = b[j + 2];
-      a[j + latAxis] += amp * Math.sin(si * 4.2 - t * 7) * (0.05 + si * si);
+      a[j + latAxis] += amp * Math.sin(si * 4.2 - t * speed) * (0.05 + si * si);
     }
     p.attr.needsUpdate = true;
   }
 }
 function resetShape() { for (const p of parts) { p.attr.array.set(p.base); p.attr.needsUpdate = true; } }
-
-function headYaw() { // 頭の向きのベクトルの角度
-  const hx = lenAxis === 0 ? headSign : 0, hz = lenAxis === 2 ? headSign : 0;
-  return Math.atan2(hx, hz);
-}
+// モデルの中で頭が向いている角度
+const headYaw = () => Math.atan2(lenAxis === 0 ? headSign : 0, lenAxis === 2 ? headSign : 0);
 
 if (glbUrl) {
-  new GLTFLoader().load(glbUrl, gltf => {
-    setupCreature(gltf.scene);
-    msg(null);
-  }, undefined, err => {
+  new GLTFLoader().load(glbUrl, gltf => { setupCreature(gltf.scene); msg(null); }, undefined, err => {
     msg("3Dモデルを読み込めませんでした。時間をおいてもう一度開くか、一覧に戻って作り直してください。");
     console.error(err);
   });
 }
 
-// ---------- ボタン ----------
-const $ = id => document.getElementById(id);
-$("move").onclick = () => { moving = !moving; $("move").classList.toggle("on", moving); $("move").textContent = moving ? "泳ぐ" : "止まる"; if (!moving) resetShape(); };
-$("flip").onclick = () => { headSign *= -1; store.set("head:" + glbUrl, headSign); computeS(); };
-const modeBtn = $("mode");
-const showMode = () => { modeBtn.textContent = "動き：" + MODE_LABEL[mode]; };
-modeBtn.onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set("mode:" + glbUrl, mode); resetShape(); showMode(); };
-showMode();
+// ---------------------------------------------------------------------
+// 動き：目標に向かって進む（うろうろ／エサ／呼ばれた）
+// ---------------------------------------------------------------------
+const me = {
+  pos: new THREE.Vector3(0, 0, 0),
+  facing: 0,              // 頭の向き（ワールドでの角度）
+  speed: 0,
+  state: "wander",        // wander | food | come | stay | eat
+  target: new THREE.Vector3(),
+  timer: 0,
+  bob: 0,
+};
+const floorY = () => FLOOR_Y + halfHeight + 0.01;
+function clampToTank(v) {
+  const b = bounds();
+  v.x = THREE.MathUtils.clamp(v.x, -b.x, b.x);
+  v.z = THREE.MathUtils.clamp(v.z, b.zMin, b.zMax);
+  if (mode === "walk") v.y = floorY(); else v.y = THREE.MathUtils.clamp(v.y, b.yMin, b.yMax);
+  return v;
+}
+function pickWander() {
+  const b = bounds();
+  me.target.set((Math.random() * 2 - 1) * b.x, b.yMin + Math.random() * (b.yMax - b.yMin), b.zMin + Math.random() * (b.zMax - b.zMin));
+  clampToTank(me.target);
+  me.state = "wander"; me.timer = 4 + Math.random() * 4;
+}
+pickWander();
 
-// ---------- アニメーション ----------
-const clock = new THREE.Clock();
-let pathT = 0;
-function tick() {
-  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  if (parts.length && moving) {
-    if (mode === "fish") {
-      pathT += dt * 0.35;
-      const R = 1.2, x = Math.cos(pathT) * R, z = Math.sin(pathT) * R * 0.7;
-      const vx = -Math.sin(pathT) * R, vz = Math.cos(pathT) * R * 0.7;
-      holder.position.set(x, Math.sin(t * 0.9) * 0.12, z);
-      holder.rotation.set(0, Math.atan2(vx, vz) - headYaw(), Math.sin(t * 0.9) * 0.05);
-      deform(t, 0.07);
-    } else if (mode === "walk") {
-      pathT += dt * 0.25;
-      const x = Math.sin(pathT) * 1.1;
-      holder.position.set(x, -0.62 + Math.abs(Math.sin(t * 6)) * 0.035, 0.2);
-      const dir = Math.cos(pathT) >= 0 ? 1 : -1;
-      holder.rotation.set(0, Math.atan2(dir, 0) - headYaw(), Math.sin(t * 6) * 0.03);
-    } else {
-      holder.position.set(Math.sin(t * 0.4) * 0.8, 0.1 + Math.sin(t * 1.3) * 0.25, Math.cos(t * 0.3) * 0.5);
-      holder.rotation.set(Math.sin(t * 1.3) * 0.08, t * 0.3, Math.sin(t * 0.8) * 0.06);
+const headPoint = () => new THREE.Vector3(Math.sin(me.facing), 0, Math.cos(me.facing)).multiplyScalar(0.45).add(me.pos);
+const CRUISE = { fish: 0.45, walk: 0.22, float: 0.35 };
+const DASH = { fish: 1.1, walk: 0.45, float: 0.8 };
+
+function steer(dt) {
+  const to = me.target.clone().sub(me.pos);
+  if (mode === "walk") to.y = 0;
+  const dist = to.length();
+  const urgent = me.state === "food" || me.state === "come";
+  const want = me.state === "stay" || me.state === "eat" ? 0 : Math.min(urgent ? DASH[mode] : CRUISE[mode], dist * 1.5);
+  me.speed += (want - me.speed) * Math.min(1, dt * 3);
+  if (dist > 0.02) {
+    // 向きをゆっくり目標へ
+    let desired = Math.atan2(to.x, to.z);
+    if (me.state === "stay") desired = Math.atan2(camera.position.x - me.pos.x, camera.position.z - me.pos.z);
+    let d = desired - me.facing; d = Math.atan2(Math.sin(d), Math.cos(d));
+    me.facing += THREE.MathUtils.clamp(d, -dt * 3.5, dt * 3.5);
+    const dir = to.normalize();
+    me.pos.addScaledVector(dir, me.speed * dt);
+  }
+  if (me.state === "stay") { // 呼ばれた位置でこちらを見る
+    const desired = Math.atan2(camera.position.x - me.pos.x, camera.position.z - me.pos.z);
+    let d = desired - me.facing; d = Math.atan2(Math.sin(d), Math.cos(d));
+    me.facing += THREE.MathUtils.clamp(d, -dt * 3, dt * 3);
+  }
+  clampToTank(me.pos);
+  return dist;
+}
+
+function updateCreature(dt, t) {
+  if (!parts.length) return;
+  me.timer -= dt;
+  // 近くにエサがあれば向かう（呼ばれているときは呼ばれた方を優先）
+  if (me.state !== "come" && me.state !== "stay" && me.state !== "eat") {
+    const f = nearestFood();
+    if (f) { me.state = "food"; me.target.copy(f.mesh.position); if (mode === "walk") me.target.y = floorY(); }
+    else if (me.state === "food") pickWander();
+  }
+  const dist = steer(dt);
+
+  if (me.state === "wander" && (dist < 0.1 || me.timer < 0)) pickWander();
+  if (me.state === "come" && dist < 0.08) { me.state = "stay"; me.timer = 4; pop("♪", me.pos); }
+  if (me.state === "stay" && me.timer < 0) pickWander();
+  if (me.state === "eat" && me.timer < 0) pickWander();
+  if (me.state === "food") {
+    const f = nearestFood();
+    if (f) {
+      const h = headPoint(), fp = f.mesh.position;
+      const d2 = (p) => mode === "walk" ? Math.hypot(fp.x - p.x, fp.z - p.z) : fp.distanceTo(p);
+      if (Math.min(d2(h), d2(me.pos)) < 0.25) eat(f);
     }
   }
+
+  // 見た目
+  const swimSpeed = 5 + me.speed * 9;
+  if (mode === "fish") {
+    deform(t, 0.03 + me.speed * 0.08 + (me.state === "stay" ? 0.03 : 0), swimSpeed);
+    holder.position.set(me.pos.x, me.pos.y + Math.sin(t * 1.4) * 0.03, me.pos.z);
+    holder.rotation.set(0, me.facing - headYaw(), Math.sin(t * 1.4) * 0.04);
+  } else if (mode === "walk") {
+    const step = me.speed > 0.03 ? Math.abs(Math.sin(t * 10)) * 0.025 : 0;
+    holder.position.set(me.pos.x, me.pos.y + step, me.pos.z);
+    holder.rotation.set(0, me.facing - headYaw(), me.speed > 0.03 ? Math.sin(t * 10) * 0.04 : 0);
+  } else {
+    holder.position.set(me.pos.x, me.pos.y + Math.sin(t * 2.2) * 0.08, me.pos.z);
+    holder.rotation.set(Math.sin(t * 2.2) * 0.06, me.facing - headYaw(), Math.sin(t * 1.1) * 0.08);
+  }
+  // 食べているときのもぐもぐ
+  const chew = me.state === "eat" ? 1 + Math.sin(t * 28) * 0.04 : 1;
+  holder.scale.set(chew, 1 / chew, chew);
+}
+
+// ---------------------------------------------------------------------
+// エサ（生き物の種類で変える）
+// ---------------------------------------------------------------------
+const FOODS = {
+  fish:              { name: "フレーク",     count: 6, sink: 0.12, spread: 0.35, floor: false, make: makeFlake },
+  shrimp:            { name: "沈むエサ",     count: 4, sink: 0.55, spread: 0.2,  floor: true,  make: makePellet },
+  crab:              { name: "沈むエサ",     count: 4, sink: 0.55, spread: 0.2,  floor: true,  make: makePellet },
+  insect_walking:    { name: "昆虫ゼリー",   count: 1, sink: 2.0,  spread: 0,    floor: true,  make: makeJelly, bites: 4 },
+  insect_flying:     { name: "花",           count: 1, sink: 0,    spread: 0,    floor: false, make: makeFlower, bites: 3 },
+  amphibian_reptile: { name: "コオロギ",     count: 2, sink: 2.0,  spread: 0.25, floor: true,  make: makeCricket },
+  mollusk_other:     { name: "葉っぱ",       count: 1, sink: 0.4,  spread: 0,    floor: true,  make: makeLeaf, bites: 3 },
+  mammal:            { name: "ドッグフード", count: 6, sink: 0,    spread: 0,    floor: true,  make: makeKibble, dish: true },
+};
+const FOOD_BY_MODE = { fish: "fish", walk: "crab", float: "insect_flying" };
+const foodKind = () => FOODS[bodyType] ? bodyType : FOOD_BY_MODE[mode];
+const foods = [];
+
+function makeFlake() {
+  const colors = [0xff8a3d, 0xffd15c, 0xd94c3d, 0x7bc96f];
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.035 + Math.random() * 0.02, 6), new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * 4)], side: THREE.DoubleSide, roughness: .8 }));
+  m.rotation.set(Math.random() * 3, Math.random() * 3, 0); return m;
+}
+function makePellet() { return new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: .9 })); }
+function makeJelly() {
+  const g = new THREE.Group();
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.09, 20), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: .4 }));
+  const jelly = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.02, 20), new THREE.MeshStandardMaterial({ color: 0xff9a2e, roughness: .2, emissive: 0x552200 }));
+  jelly.position.y = 0.05; g.add(cup, jelly); g.userData.lift = 0.045; return g;
+}
+function makeFlower() {
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x3f9b5a }));
+  stem.position.y = -0.45; g.add(stem);
+  const petal = new THREE.MeshStandardMaterial({ color: 0xff8fc0, roughness: .6 });
+  for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), petal); const a = i / 6 * Math.PI * 2; p.position.set(Math.cos(a) * 0.07, 0, Math.sin(a) * 0.07); p.scale.y = 0.4; g.add(p); }
+  const c = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffd23c })); g.add(c);
+  return g;
+}
+function makeCricket() {
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.07, 4, 8), new THREE.MeshStandardMaterial({ color: 0x5b3b1c, roughness: .7 }));
+  b.rotation.z = Math.PI / 2; g.add(b); g.userData.lift = 0.025; g.userData.hop = true; return g;
+}
+function makeKibble() {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.011, 6, 10), new THREE.MeshStandardMaterial({ color: 0x9a5b2a, roughness: .9 }));
+  m.rotation.set(Math.random() * 3, Math.random() * 3, 0); return m;
+}
+function makeDish() {
+  const pts = [new THREE.Vector2(0, 0), new THREE.Vector2(0.15, 0), new THREE.Vector2(0.19, 0.07), new THREE.Vector2(0.17, 0.075), new THREE.Vector2(0.13, 0.015), new THREE.Vector2(0, 0.015)];
+  return new THREE.Mesh(new THREE.LatheGeometry(pts, 32), new THREE.MeshStandardMaterial({ color: 0xd9534f, roughness: .45, side: THREE.DoubleSide }));
+}
+const dishes = [];
+function makeLeaf() {
+  const s = new THREE.Shape(); s.moveTo(0, -0.12); s.quadraticCurveTo(0.09, 0, 0, 0.12); s.quadraticCurveTo(-0.09, 0, 0, -0.12);
+  const m = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ color: 0x6fbf4a, side: THREE.DoubleSide }));
+  m.rotation.x = -Math.PI / 2; m.userData.lift = 0.005; return m;
+}
+
+function dropFood() {
+  if (!parts.length) return;
+  const kind = FOODS[foodKind()];
+  const b = bounds();
+  // 生き物から少し離れた、見える場所に落とす
+  const cx = THREE.MathUtils.clamp(me.pos.x + (Math.random() < .5 ? -1 : 1) * (0.5 + Math.random() * 0.4), -b.x * 0.85, b.x * 0.85);
+  const cz = THREE.MathUtils.clamp(0.2 + (Math.random() - .5) * 0.6, b.zMin, b.zMax);
+  if (kind.dish) {
+    const dish = makeDish(); dish.position.set(cx, FLOOR_Y, cz); scene.add(dish);
+    const d = { mesh: dish, left: kind.count }; dishes.push(d);
+    for (let i = 0; i < kind.count; i++) {
+      const m = kind.make(); const a = Math.random() * Math.PI * 2, r = Math.random() * 0.09;
+      m.position.set(cx + Math.cos(a) * r, FLOOR_Y + 0.035 + Math.random() * 0.02, cz + Math.sin(a) * r);
+      scene.add(m); foods.push({ mesh: m, kind, landed: true, life: 60, dish: d });
+    }
+    pop(kind.name, new THREE.Vector3(cx, FLOOR_Y + 0.3, cz));
+    return;
+  }
+  for (let i = 0; i < kind.count; i++) {
+    const m = kind.make();
+    const startY = kind === FOODS.insect_flying ? 0.35 : b.yMax;
+    m.position.set(cx + (Math.random() - .5) * kind.spread, startY + Math.random() * 0.15, cz + (Math.random() - .5) * kind.spread);
+    scene.add(m);
+    foods.push({ mesh: m, kind, landed: kind.sink === 0, life: 25, sway: Math.random() * 6, bites: kind.bites || 1 });
+  }
+  pop(kind.name, new THREE.Vector3(cx, b.yMax, cz));
+}
+function updateFoods(dt, t) {
+  for (let i = foods.length - 1; i >= 0; i--) {
+    const f = foods[i];
+    const y0 = FLOOR_Y + (f.mesh.userData.lift || 0.02);
+    if (!f.landed) {
+      f.mesh.position.y -= f.kind.sink * dt;
+      if (f.kind === FOODS.fish) { f.mesh.position.x += Math.sin(t * 2 + f.sway) * 0.002; f.mesh.rotation.x += dt * 1.5; }
+      if (f.mesh.position.y <= y0) { f.mesh.position.y = y0; f.landed = true; }
+    }
+    if (f.landed && f.mesh.userData.hop && Math.random() < dt * 0.6) f.mesh.position.x += (Math.random() - .5) * 0.15;
+    f.life -= dt;
+    if (f.life < 0) { scene.remove(f.mesh); foods.splice(i, 1); if (f.dish) emptyDish(f.dish); }
+  }
+}
+function nearestFood() {
+  let best = null, bd = Infinity;
+  for (const f of foods) {
+    // 魚は底に落ちたフレークより水中のものを好む。歩く生き物は底に着いたものだけ
+    if (mode === "walk" && !f.landed) continue;
+    const d = f.mesh.position.distanceTo(me.pos) + (mode === "fish" && f.landed ? 0.8 : 0);
+    if (d < bd) { bd = d; best = f; }
+  }
+  return best;
+}
+function emptyDish(d) {
+  d.left--; if (d.left <= 0) setTimeout(() => { scene.remove(d.mesh); dishes.splice(dishes.indexOf(d), 1); }, 1500);
+}
+function eat(f) {
+  if (f.bites > 1) { // 何口かに分けて食べる
+    f.bites--; me.state = "eat"; me.timer = 1.0; f.life = Math.max(f.life, 15);
+    pop(f.kind === FOODS.insect_flying ? "ちゅー" : "もぐもぐ", f.mesh.position);
+    if (f.kind !== FOODS.insect_flying) f.mesh.scale.multiplyScalar(0.8);
+    return;
+  }
+  scene.remove(f.mesh); foods.splice(foods.indexOf(f), 1);
+  if (f.dish) emptyDish(f.dish);
+  me.state = "eat"; me.timer = 0.7;
+  pop(f.kind === FOODS.insect_flying ? "ちゅー" : "パクッ", f.mesh.position);
+  const eaten = store.get("eaten:" + glbUrl, 0) + 1; store.set("eaten:" + glbUrl, eaten);
+}
+
+// ---------------------------------------------------------------------
+// ダブルタップで呼ぶ
+// ---------------------------------------------------------------------
+const ray = new THREE.Raycaster();
+function callTo(clientX, clientY) {
+  if (!parts.length) return;
+  ring(clientX, clientY);
+  const ndc = new THREE.Vector2(clientX / innerWidth * 2 - 1, -(clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  // 画面のガラス側（手前）に置いた面と、タップした方向の交点へ来させる
+  const front = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+  const planePoint = controls.target.clone().addScaledVector(front, 0.9);
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(front, planePoint);
+  const hit = new THREE.Vector3();
+  if (!ray.ray.intersectPlane(plane, hit)) hit.copy(planePoint);
+  me.target.copy(clampToTank(hit));
+  me.state = "come"; me.timer = 6;
+}
+let lastTap = { t: 0, x: 0, y: 0 }, down = null;
+renderer.domElement.addEventListener("pointerdown", e => { down = { t: performance.now(), x: e.clientX, y: e.clientY }; });
+renderer.domElement.addEventListener("pointerup", e => {
+  if (!down) return;
+  const now = performance.now();
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+  if (moved < 12 && now - down.t < 300) {
+    if (now - lastTap.t < 380 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 50) {
+      callTo(e.clientX, e.clientY); lastTap.t = 0;
+    } else lastTap = { t: now, x: e.clientX, y: e.clientY };
+  }
+  down = null;
+});
+renderer.domElement.addEventListener("dblclick", e => e.preventDefault());
+
+// ---------------------------------------------------------------------
+// 画面の小さな演出
+// ---------------------------------------------------------------------
+function ring(x, y) { const d = document.createElement("div"); d.className = "ring"; d.style.left = x + "px"; d.style.top = y + "px"; document.body.append(d); setTimeout(() => d.remove(), 700); }
+function pop(text, worldPos) {
+  const v = worldPos.clone().add(new THREE.Vector3(0, 0.35, 0)).project(camera);
+  const d = document.createElement("div"); d.className = "pop"; d.textContent = text;
+  d.style.left = (v.x + 1) / 2 * innerWidth + "px"; d.style.top = (1 - v.y) / 2 * innerHeight + "px";
+  document.body.append(d); setTimeout(() => d.remove(), 1200);
+}
+
+// ---------------------------------------------------------------------
+// ボタン
+// ---------------------------------------------------------------------
+const feedBtn = $("feed");
+const showFeed = () => { feedBtn.textContent = "エサ：" + FOODS[foodKind()].name; };
+feedBtn.onclick = dropFood;
+$("flip").onclick = () => { headSign *= -1; store.set("head:" + glbUrl, headSign); computeS(); };
+const modeBtn = $("mode");
+const showMode = () => { modeBtn.textContent = "動き：" + MODE_LABEL[mode]; showFeed(); };
+modeBtn.onclick = () => {
+  mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set("mode:" + glbUrl, mode);
+  resetShape(); clampToTank(me.pos); pickWander(); showMode();
+};
+showMode();
+
+// =====================================================================
+// 毎コマの更新
+// =====================================================================
+const clock = new THREE.Clock();
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  updateFoods(dt, t);
+  updateCreature(dt, t);
   for (const w of weeds) {
     const a = w.geometry.attributes.position, b = w.userData.base;
     for (let i = 0; i < a.count; i++) { const y = b[i * 3 + 1]; a.array[i * 3] = b[i * 3] + Math.sin(t * 1.2 + w.userData.ph + y * 2) * 0.08 * y; }
@@ -223,6 +485,9 @@ function tick() {
 }
 tick();
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+// テスト用の小さな窓口（画面には影響しない）
+window.__tank = { me, foods, dropFood, callTo };
 </script>
 </body>
 </html>

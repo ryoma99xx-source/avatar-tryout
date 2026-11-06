@@ -118,6 +118,7 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
           <option value="insect_walking">歩く虫（カブトムシ、ダンゴムシなど）</option>
           <option value="insect_flying">飛ぶ虫（チョウ、トンボなど）</option>
           <option value="amphibian_reptile">カエル・トカゲ</option>
+          <option value="mammal">哺乳類（犬・猫・ネズミなど）</option>
           <option value="mollusk_other">その他（貝、カタツムリなど）</option>
         </select>
       </label>
@@ -183,8 +184,9 @@ const BODY_HINTS = {
   insect_flying: "Wings are soft, rounded and slightly translucent, attached clearly to the body. Legs short and thick. Show the full body from a 3/4 front view with wings open.",
   amphibian_reptile: "Limbs are short and chubby with rounded toes. Show the full body from a 3/4 front view, sitting.",
   mollusk_other: "Soft rounded shapes, simple silhouette. Show the full body from a 3/4 front view.",
+  mammal: "Big round head, short chubby legs, soft fur simplified into smooth rounded shapes, small rounded paws. Show the full body from a 3/4 front view, standing on four legs.",
 };
-const BODY_NAMES = { fish: "fish", shrimp: "shrimp or crayfish", crab: "crab", insect_walking: "insect", insect_flying: "flying insect", amphibian_reptile: "amphibian or reptile", mollusk_other: "small creature" };
+const BODY_NAMES = { fish: "fish", shrimp: "shrimp or crayfish", crab: "crab", insect_walking: "insect", insect_flying: "flying insect", amphibian_reptile: "amphibian or reptile", mollusk_other: "small creature", mammal: "small mammal" };
 
 const TEMPLATE = `Create a cute stylized 3D character of the creature in image 1{SPECIES}.
 
