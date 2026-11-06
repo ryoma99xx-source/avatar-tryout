@@ -29,7 +29,7 @@ button.feed{background:var(--food);border-color:#b07a17;box-shadow:0 3px 0 #8a5d
 button:focus-visible,a.btn:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .msg{position:fixed;z-index:4;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;pointer-events:none}
 .msg div{background:var(--cream);border:2px solid var(--wood);border-radius:16px;padding:16px 20px;max-width:420px}
-.hint{color:var(--cream);font-size:12px;text-align:right;text-shadow:0 1px 3px rgba(0,0,0,.35);line-height:1.5}
+.hint{color:var(--ink);background:rgba(255,247,227,.85);border-radius:12px;padding:5px 10px;font-size:12px;text-align:right;line-height:1.5}
 .plaque{position:fixed;z-index:3;left:50%;transform:translateX(-50%);bottom:calc(var(--frame) + 74px + env(safe-area-inset-bottom,0px));
   background:linear-gradient(var(--cream),var(--cream-2));border:2px solid var(--wood);border-radius:12px;padding:6px 18px 7px;text-align:center;box-shadow:0 4px 0 rgba(90,58,34,.45);min-width:150px;max-width:calc(100% - 60px)}
 .plaque b{display:block;font-weight:900;font-size:17px;letter-spacing:.04em}
@@ -74,6 +74,12 @@ const bodyType = q.get("t") || "";
 const nameParam = q.get("n") || "";
 const VERTICAL_NAMES = /タチウオ|太刀魚|たちうお|tachiuo|cutlass/i;  // 頭を上にして縦に泳ぐ魚
 const isVerticalFish = VERTICAL_NAMES.test(nameParam);
+// 陸の生き物（名前からも判断する）
+const LAND_TYPES = new Set(["insect_walking", "insect_flying", "amphibian_reptile", "mammal", "mollusk_other"]);
+const LAND_NAMES = /カブト|クワガタ|カナブン|トンボ|とんぼ|ヤンマ|アカネ|チョウ|ちょう|蝶|ハチ|蜂|バッタ|ばった|キリギリス|コオロギ|カマキリ|かまきり|ダンゴムシ|だんごむし|カタツムリ|かたつむり|カエル|かえる|蛙|トカゲ|とかげ|カナヘビ|ヤモリ|イヌ|いぬ|犬|ネコ|ねこ|猫|ハムスター|ネズミ|ウサギ|セミ|せみ|テントウ/;
+const FLYING_NAMES = /トンボ|とんぼ|ヤンマ|アカネ|チョウ|ちょう|蝶|ハチ|蜂|セミ|せみ|テントウ/;
+const habitat = LAND_TYPES.has(bodyType) || (!["fish", "shrimp", "crab"].includes(bodyType) && LAND_NAMES.test(nameParam)) ? "garden" : "sea";
+document.title = habitat === "garden" ? "草はらの展示" : "海の水槽";
 const store = {
   get(k, d) { try { const v = localStorage.getItem("tank:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("tank:" + k, JSON.stringify(v)); } catch (e) {} },
@@ -84,7 +90,7 @@ if (!glbUrl) msg("3Dモデルが指定されていません。一覧から「3D�
 if (nameParam) { $("plaqueName").textContent = nameParam; $("plaque").hidden = false; }
 
 // =====================================================================
-// 水槽（海）：博物館の水族館のような、やわらかくておもちゃっぽい海の展示
+// すみか：博物館の展示のような、やわらかくておもちゃっぽい世界（海と草はら）
 // =====================================================================
 const FLOOR_Y = -1.1;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -97,7 +103,6 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 const WATER_MID = 0x58bccb;
-scene.fog = new THREE.Fog(WATER_MID, 5.5, 15);
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.05, 60);
 const camDist = () => innerWidth / innerHeight < 1 ? Math.min(8, 3.4 / (innerWidth / innerHeight)) : 4.2;
 camera.position.set(0, 0.45, camDist());
@@ -111,19 +116,42 @@ let seed = 20261107;
 const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 const soft = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0, ...extra });
 
+function skyDome(top, mid, bot) {
+  return new THREE.Mesh(new THREE.SphereGeometry(30, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { top: { value: new THREE.Color(top) }, mid: { value: new THREE.Color(mid) }, bot: { value: new THREE.Color(bot) } },
+    vertexShader: "varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+    fragmentShader: "uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vP; void main(){ float h = vP.y; vec3 c = h > 0.0 ? mix(mid, top, smoothstep(0.0, 0.55, h)) : mix(mid, bot, smoothstep(0.0, 0.5, -h)); gl_FragColor = vec4(c,1.0); }",
+  }));
+}
+function rayTexture() {
+  const c = document.createElement("canvas"); c.width = 64; c.height = 256; const g = c.getContext("2d");
+  const grd = g.createLinearGradient(0, 0, 0, 256); grd.addColorStop(0, "rgba(255,255,240,0.55)"); grd.addColorStop(1, "rgba(255,255,240,0)");
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 256);
+  const side = g.createLinearGradient(0, 0, 64, 0); side.addColorStop(0, "rgba(0,0,0,1)"); side.addColorStop(0.5, "rgba(0,0,0,0)"); side.addColorStop(1, "rgba(0,0,0,1)");
+  g.globalCompositeOperation = "destination-out"; g.fillStyle = side; g.fillRect(0, 0, 64, 256);
+  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx;
+}
+function rock(r, color) {
+  const g = new THREE.SphereGeometry(r, 36, 24); const a = g.attributes.position; const v = new THREE.Vector3();
+  const k1 = rnd() * 10, k2 = rnd() * 10;
+  for (let i = 0; i < a.count; i++) { v.fromBufferAttribute(a, i); const n = 1 + Math.sin(v.x * 3 + k1) * 0.07 + Math.cos(v.z * 2.6 + k2) * 0.07; v.multiplyScalar(n); a.setXYZ(i, v.x, v.y, v.z); }
+  g.computeVertexNormals();
+  return new THREE.Mesh(g, soft(color, { roughness: 0.9 }));
+}
+
+// ---------------------------------------------------------------------
+// 海：博物館の水族館のような、やわらかい海の展示（魚・エビ・カニ）
+// ---------------------------------------------------------------------
+function buildSea() {
+scene.fog = new THREE.Fog(WATER_MID, 5.5, 15);
 // 光
 scene.add(new THREE.HemisphereLight(0xeafcff, 0x3d8f8a, 1.6));
 const sun = new THREE.DirectionalLight(0xfff6e0, 2.4); sun.position.set(1.5, 5, 2.5); scene.add(sun);
 const fill = new THREE.DirectionalLight(0x9fe8ff, 0.9); fill.position.set(-3, 1.5, 3); scene.add(fill);
 
-// 水の色：上は明るい水色、下は深い青緑のグラデーション
-const sky = new THREE.Mesh(new THREE.SphereGeometry(30, 32, 16), new THREE.ShaderMaterial({
-  side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { top: { value: new THREE.Color(0xa6eef0) }, mid: { value: new THREE.Color(WATER_MID) }, bot: { value: new THREE.Color(0x1f7891) } },
-  vertexShader: "varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-  fragmentShader: "uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vP; void main(){ float h = vP.y; vec3 c = h > 0.0 ? mix(mid, top, smoothstep(0.0, 0.55, h)) : mix(mid, bot, smoothstep(0.0, 0.5, -h)); gl_FragColor = vec4(c,1.0); }",
-}));
-scene.add(sky);
+// 水の色：上は明るい水色、下は深い青緑
+scene.add(skyDome(0xa6eef0, WATER_MID, 0x1f7891));
 
 // 砂：ゆるい起伏のある、明るい砂浜色
 const sandGeo = new THREE.PlaneGeometry(14, 14, 90, 90); sandGeo.rotateX(-Math.PI / 2);
@@ -151,14 +179,6 @@ const caustics = new THREE.Mesh(sandGeo.clone(), causticMat);
 caustics.position.y = FLOOR_Y + 0.006; scene.add(caustics);
 
 // 上から差し込む光の筋
-function rayTexture() {
-  const c = document.createElement("canvas"); c.width = 64; c.height = 256; const g = c.getContext("2d");
-  const grd = g.createLinearGradient(0, 0, 0, 256); grd.addColorStop(0, "rgba(255,255,240,0.55)"); grd.addColorStop(1, "rgba(255,255,240,0)");
-  g.fillStyle = grd; g.fillRect(0, 0, 64, 256);
-  const side = g.createLinearGradient(0, 0, 64, 0); side.addColorStop(0, "rgba(0,0,0,1)"); side.addColorStop(0.5, "rgba(0,0,0,0)"); side.addColorStop(1, "rgba(0,0,0,1)");
-  g.globalCompositeOperation = "destination-out"; g.fillStyle = side; g.fillRect(0, 0, 64, 256);
-  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx;
-}
 const rayTex = rayTexture(), rays = [];
 for (let i = 0; i < 6; i++) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5 + rnd() * 0.5, 4.2), new THREE.MeshBasicMaterial({ map: rayTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.35, fog: false }));
@@ -168,13 +188,6 @@ for (let i = 0; i < 6; i++) {
 }
 
 // 丸っこい岩
-function rock(r, color) {
-  const g = new THREE.SphereGeometry(r, 36, 24); const a = g.attributes.position; const v = new THREE.Vector3();
-  const k1 = rnd() * 10, k2 = rnd() * 10;
-  for (let i = 0; i < a.count; i++) { v.fromBufferAttribute(a, i); const n = 1 + Math.sin(v.x * 3 + k1) * 0.07 + Math.cos(v.z * 2.6 + k2) * 0.07; v.multiplyScalar(n); a.setXYZ(i, v.x, v.y, v.z); }
-  g.computeVertexNormals();
-  return new THREE.Mesh(g, soft(color, { roughness: 0.9 }));
-}
 const ROCKS = [0xa9bccb, 0xc8b9a6, 0x93aab9, 0xb7c7a8];
 const rockPlan = [ // x, z, 半径, 縦のつぶれ
   [-2.6, -2.2, 0.9, 0.9], [-1.7, -2.6, 0.7, 1.1], [2.4, -2.3, 1.0, 0.85], [1.5, -2.8, 0.6, 1.2], [0.1, -3.2, 0.8, 0.9],
@@ -280,7 +293,7 @@ bubbleGeo.setAttribute("position", new THREE.BufferAttribute(bp, 3));
 scene.add(new THREE.Points(bubbleGeo, new THREE.PointsMaterial({ map: bubbleTexture(), size: 0.11, transparent: true, depthWrite: false })));
 
 // 毎コマの環境の動き
-function envUpdate(t, dt) {
+return function envUpdate(t, dt) {
   causticMat.uniforms.t.value = t;
   for (const r of rays) r.material.opacity = 0.2 + Math.sin(t * 0.5 + r.userData.ph) * 0.12;
   for (const w of weeds) {
@@ -299,6 +312,113 @@ function envUpdate(t, dt) {
   }
   bubbleGeo.attributes.position.needsUpdate = true;
 }
+}
+
+// ---------------------------------------------------------------------
+// 草はら：博物館の昆虫展示のような、日だまりの庭（虫・カエル・哺乳類など）
+// ---------------------------------------------------------------------
+function buildGarden() {
+  scene.fog = new THREE.Fog(0xe4efcf, 6, 16);
+  scene.add(new THREE.HemisphereLight(0xfff8e6, 0x6f9a4c, 1.7));
+  const sunL = new THREE.DirectionalLight(0xfff0cf, 2.6); sunL.position.set(-2.5, 5, 3); scene.add(sunL);
+  const fillL = new THREE.DirectionalLight(0xd8f0ff, 0.7); fillL.position.set(3, 2, 2); scene.add(fillL);
+  scene.add(skyDome(0xcdeaf7, 0xeef3d2, 0xb9d79a));
+
+  // 地面：やわらかい芝
+  const gGeo = new THREE.PlaneGeometry(14, 14, 80, 80); gGeo.rotateX(-Math.PI / 2);
+  { const a = gGeo.attributes.position;
+    for (let i = 0; i < a.count; i++) { const x = a.getX(i), z = a.getZ(i); a.setY(i, Math.sin(x * 1.3) * 0.025 + Math.cos(z * 1.7 + x) * 0.02 + (z < -2.2 ? (-2.2 - z) * 0.18 : 0)); }
+    gGeo.computeVertexNormals(); }
+  const ground = new THREE.Mesh(gGeo, soft(0x93cf6f, { roughness: 1 })); ground.position.y = FLOOR_Y; scene.add(ground);
+
+  // 草：細い葉をたくさん。根元は動かさず、先だけ風に揺らす
+  const blade = new THREE.ConeGeometry(0.025, 0.22, 3, 1); blade.translate(0, 0.11, 0);
+  const grassMat = soft(0x6fbf55, { roughness: 0.9 });
+  const windU = { value: 0 };
+  grassMat.onBeforeCompile = sh => { sh.uniforms.wind = windU;
+    sh.vertexShader = "uniform float wind;\n" + sh.vertexShader.replace("#include <begin_vertex>",
+      "#include <begin_vertex>\nfloat ph = instanceMatrix[3].x * 1.7 + instanceMatrix[3].z * 2.3;\ntransformed.x += sin(wind * 1.6 + ph) * position.y * 0.35;\ntransformed.z += cos(wind * 1.2 + ph) * position.y * 0.2;"); };
+  const N = 1400, grass = new THREE.InstancedMesh(blade, grassMat, N), m4 = new THREE.Matrix4(), qq = new THREE.Quaternion();
+  const gc = new THREE.Color();
+  for (let i = 0; i < N; i++) {
+    const x = (rnd() - .5) * 8, z = -3 + rnd() * 3.9;
+    const s = (0.5 + rnd() * 0.7) * (z > 0 ? 0.6 : 1); // 手前は低く
+    qq.setFromEuler(new THREE.Euler((rnd() - .5) * 0.4, rnd() * 6, (rnd() - .5) * 0.4));
+    m4.compose(new THREE.Vector3(x, FLOOR_Y, z), qq, new THREE.Vector3(s, s * (0.7 + rnd() * 0.8), s));
+    grass.setMatrixAt(i, m4); grass.setColorAt(i, gc.setHSL(0.27 + rnd() * 0.06, 0.5, 0.42 + rnd() * 0.14));
+  }
+  scene.add(grass);
+
+  // 木：丸いこんもりした葉
+  function tree(x, z, s, leaf) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * s, 0.18 * s, 1.6 * s, 12), soft(0x9a6b45)); trunk.position.y = 0.8 * s; g.add(trunk);
+    const lm = soft(leaf, { roughness: 0.85 });
+    [[0, 1.9, 0, 0.75], [-0.45, 1.65, 0.1, 0.55], [0.45, 1.7, -0.05, 0.6], [0.05, 2.35, 0, 0.5]].forEach(([x2, y2, z2, r]) => {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(r * s, 24, 16), lm); b.position.set(x2 * s, y2 * s, z2 * s); g.add(b); });
+    g.position.set(x, FLOOR_Y, z); scene.add(g);
+  }
+  tree(-2.4, -2.6, 1.1, 0x6cb85a); tree(2.5, -2.4, 1.0, 0x7fc466); tree(0.6, -3.6, 1.2, 0x5fa94f);
+
+  // 倒木
+  const log = new THREE.Group();
+  const bark = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 1.6, 18), soft(0x8a5b3a)); bark.rotation.z = Math.PI / 2; log.add(bark);
+  [-0.8, 0.8].forEach(x => { const c = new THREE.Mesh(new THREE.CircleGeometry(0.22, 18), soft(0xe2c08f)); c.position.x = x * 1.001; c.rotation.y = x > 0 ? Math.PI / 2 : -Math.PI / 2; log.add(c); });
+  const moss = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), soft(0x7ab352)); moss.position.set(-0.3, 0.17, 0); moss.scale.set(1.6, 0.35, 1); log.add(moss);
+  log.position.set(1.2, FLOOR_Y + 0.2, -1.4); log.rotation.y = 0.35; scene.add(log);
+
+  // 小さな池
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(0.75, 40), new THREE.MeshStandardMaterial({ color: 0x7fd0e6, roughness: 0.15, metalness: 0.1 }));
+  pond.rotation.x = -Math.PI / 2; pond.scale.set(1.3, 0.8, 1); pond.position.set(-1.5, FLOOR_Y + 0.03, -0.9); scene.add(pond);
+  const rim2 = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.07, 8, 40), soft(0xb9b3a4)); rim2.rotation.x = -Math.PI / 2; rim2.scale.set(1.3, 0.8, 1); rim2.position.copy(pond.position); scene.add(rim2);
+  const pad = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16, 0.3, Math.PI * 1.8), soft(0x5fae5a, { side: THREE.DoubleSide })); pad.rotation.x = -Math.PI / 2; pad.position.set(-1.3, FLOOR_Y + 0.04, -0.95); scene.add(pad);
+
+  // 岩と花
+  [[2.4, -0.6, 0.32], [-2.6, -1.4, 0.4], [0.2, -2.2, 0.28]].forEach(([x, z, r]) => { const m = rock(r, 0xc9c1ad); m.position.set(x, FLOOR_Y + r * 0.35, z); m.scale.y = 0.65; scene.add(m); });
+  const petalCols = [0xff9cc0, 0xffd45e, 0xffffff, 0xb79cff, 0xff8f6b];
+  for (let i = 0; i < 26; i++) {
+    const f = new THREE.Group(), h = 0.18 + rnd() * 0.25, col = petalCols[Math.floor(rnd() * petalCols.length)];
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, h, 5), soft(0x4f9a45)); st.position.y = h / 2; f.add(st);
+    const pm = soft(col, { roughness: 0.6 });
+    for (let k = 0; k < 5; k++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), pm); const a = k / 5 * Math.PI * 2; p.position.set(Math.cos(a) * 0.035, h, Math.sin(a) * 0.035); p.scale.y = 0.45; f.add(p); }
+    const c = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), soft(0xffc93c)); c.position.y = h + 0.005; f.add(c);
+    const side = rnd() < .5 ? -1 : 1;
+    f.position.set(side * (1.6 + rnd() * 1.4), FLOOR_Y, -2.4 + rnd() * 3.4); scene.add(f);
+  }
+  // 落ち葉
+  for (let i = 0; i < 14; i++) {
+    const s2 = new THREE.Shape(); s2.moveTo(0, -0.07); s2.quadraticCurveTo(0.05, 0, 0, 0.07); s2.quadraticCurveTo(-0.05, 0, 0, -0.07);
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(s2), soft([0xd9a441, 0xc8783a, 0xa6b84a][i % 3], { side: THREE.DoubleSide }));
+    m.rotation.set(-Math.PI / 2, 0, rnd() * 6); m.position.set((rnd() - .5) * 5, FLOOR_Y + 0.012, -1.8 + rnd() * 2.8); scene.add(m);
+  }
+
+  // 木もれ日の光の筋と、ただよう光の粒
+  const rays = [];
+  for (let i = 0; i < 5; i++) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.6 + rnd() * 0.4, 4.5), new THREE.MeshBasicMaterial({ map: rayTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.25, fog: false, color: 0xfff1c9 }));
+    m.position.set(-2.2 + i * 1.1, 1.0, -1.6 - rnd()); m.rotation.z = -0.35; m.userData.ph = rnd() * 6; scene.add(m); rays.push(m);
+  }
+  const NP = 50, pg = new THREE.BufferGeometry(), pp = new Float32Array(NP * 3);
+  for (let i = 0; i < NP; i++) { pp[i * 3] = (rnd() - .5) * 6; pp[i * 3 + 1] = FLOOR_Y + rnd() * 2.6; pp[i * 3 + 2] = -2.5 + rnd() * 3.5; }
+  pg.setAttribute("position", new THREE.BufferAttribute(pp, 3));
+  scene.add(new THREE.Points(pg, new THREE.PointsMaterial({ map: glowTexture(), size: 0.07, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xfff3c4 })));
+
+  return function envUpdate(t, dt) {
+    windU.value = t;
+    for (const r of rays) r.material.opacity = 0.16 + Math.sin(t * 0.4 + r.userData.ph) * 0.08;
+    const a = pg.attributes.position.array;
+    for (let i = 0; i < NP; i++) { a[i * 3] += Math.sin(t * 0.3 + i) * 0.002; a[i * 3 + 1] += Math.cos(t * 0.4 + i * 1.3) * 0.0015; }
+    pg.attributes.position.needsUpdate = true;
+  };
+}
+function glowTexture() {
+  const c = document.createElement("canvas"); c.width = c.height = 32; const g = c.getContext("2d");
+  const grd = g.createRadialGradient(16, 16, 0, 16, 16, 16); grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grd; g.fillRect(0, 0, 32, 32); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// すみかを選ぶ：水の生き物は海、虫・カエル・哺乳類などは草はら
+const envUpdate = habitat === "garden" ? buildGarden() : buildSea();
 
 // 泳げる範囲（画面の幅に合わせる）
 function bounds() {
@@ -313,10 +433,13 @@ const holder = new THREE.Group(); scene.add(holder);
 let parts = [];
 let lenAxis = 0, latAxis = 2, halfHeight = 0.25;
 let headSign = store.get("head:" + glbUrl, 1);
-const MODES = ["fish", "vertical", "walk", "float"];
-const MODE_LABEL = { fish: "魚", vertical: "立ち泳ぎ", walk: "歩く", float: "ふわふわ" };
-const defaultMode = isVerticalFish ? "vertical" : bodyType === "" || bodyType === "fish" ? "fish" : bodyType === "insect_flying" ? "float" : "walk";
+const MODES = habitat === "garden" ? ["walk", "float"] : ["fish", "vertical", "walk"];
+const MODE_LABEL = { fish: "魚", vertical: "立ち泳ぎ", walk: "歩く", float: "飛ぶ" };
+const defaultMode = habitat === "garden"
+  ? (bodyType === "insect_flying" || FLYING_NAMES.test(nameParam) ? "float" : "walk")
+  : isVerticalFish ? "vertical" : bodyType === "" || bodyType === "fish" ? "fish" : "walk";
 let mode = store.get("mode:" + glbUrl, defaultMode);
+if (!MODES.includes(mode)) mode = defaultMode;
 
 // 姿勢：0〜3 = 画面の奥行き方向を軸に 90°ずつ回す。縦長のモデルは最初に横へ寝かせる
 let rotSteps = store.get("rot:" + glbUrl, null);
@@ -522,8 +645,21 @@ const FOODS = {
   mammal:            { name: "ドッグフード", count: 6, sink: 0,    spread: 0,    floor: true,  make: makeKibble, dish: true },
 };
 FOODS.baitfish = { name: "キビナゴ", count: 3, sink: 0.08, spread: 0.45, floor: false, make: makeBait };
-const FOOD_BY_MODE = { fish: "fish", vertical: "baitfish", walk: "crab", float: "insect_flying" };
-const foodKind = () => isVerticalFish || mode === "vertical" ? "baitfish" : FOODS[bodyType] ? bodyType : FOOD_BY_MODE[mode];
+FOODS.gnat = { name: "小さな虫", count: 3, sink: 0, spread: 0.7, floor: false, make: makeGnat, fly: true };
+// 名前から決めるエサ（上から順に見る）。種や食性が分かるものはこちらが優先
+const FOOD_BY_NAME = [
+  [/タチウオ|太刀魚|たちうお/, "baitfish"],
+  [/トンボ|とんぼ|蜻蛉|ヤンマ|アカネ/, "gnat"],            // 飛んでいる小さな虫を捕まえる
+  [/チョウ|ちょう|蝶|ハチ|蜂|アブ/, "insect_flying"],         // 花のみつ
+  [/カマキリ|かまきり|カエル|かえる|蛙|トカゲ|とかげ|カナヘビ|ヤモリ/, "amphibian_reptile"], // コオロギ
+  [/カブト|クワガタ|カナブン/, "insect_walking"],            // 昆虫ゼリー
+  [/バッタ|ばった|キリギリス|コオロギ|ダンゴムシ|だんごむし|カタツムリ|かたつむり|ナメクジ/, "mollusk_other"], // 葉っぱ
+  [/ザリガニ|エビ|えび|カニ|かに|ヤドカリ/, "crab"],        // 沈むエサ
+  [/イヌ|いぬ|犬|ネコ|ねこ|猫|ハムスター|ネズミ|ウサギ/, "mammal"],
+];
+const FOOD_BY_MODE = { fish: "fish", vertical: "baitfish", walk: habitat === "garden" ? "mollusk_other" : "crab", float: "insect_flying" };
+const foodByName = (FOOD_BY_NAME.find(([re]) => re.test(nameParam)) || [])[1];
+const foodKind = () => foodByName || (mode === "vertical" ? "baitfish" : FOODS[bodyType] ? bodyType : FOOD_BY_MODE[mode]);
 const foods = [];
 
 function makeFlake() {
@@ -561,6 +697,14 @@ function makeDish() {
   return new THREE.Mesh(new THREE.LatheGeometry(pts, 32), new THREE.MeshStandardMaterial({ color: 0xd9534f, roughness: .45, side: THREE.DoubleSide }));
 }
 const dishes = [];
+function makeGnat() { // 小さな羽虫
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.03, 3, 6), new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: .6 }));
+  body.rotation.z = Math.PI / 2; g.add(body);
+  const wm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .6, side: THREE.DoubleSide });
+  for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.CircleGeometry(0.022, 8), wm); w.rotation.x = -Math.PI / 2; w.position.set(0, 0.012, s * 0.02); w.userData.wing = s; g.add(w); }
+  g.scale.setScalar(1.6); return g;
+}
 function makeBait() { // 小さな銀色の魚
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0xcfd8e3, metalness: .6, roughness: .3 });
@@ -596,7 +740,9 @@ function dropFood() {
   }
   for (let i = 0; i < kind.count; i++) {
     const m = kind.make();
-    const startY = kind === FOODS.insect_flying ? 0.35 : b.yMax;
+    const startY = kind === FOODS.insect_flying ? FLOOR_Y + 0.9   // 花は地面から生える
+      : kind.fly ? 0.0 + Math.random() * 0.5                       // 飛ぶ虫は空中に
+      : b.yMax;
     m.position.set(cx + (Math.random() - .5) * kind.spread, startY + Math.random() * 0.15, cz + (Math.random() - .5) * kind.spread);
     scene.add(m);
     foods.push({ mesh: m, kind, landed: kind.sink === 0, life: 25, sway: Math.random() * 6, bites: kind.bites || 1 });
@@ -614,6 +760,14 @@ function updateFoods(dt, t) {
       if (f.mesh.position.y <= y0) { f.mesh.position.y = y0; f.landed = true; if (f.kind === FOODS.baitfish) f.life = Math.min(f.life, 4); }
     }
     if (f.landed && f.mesh.userData.hop && Math.random() < dt * 0.6) f.mesh.position.x += (Math.random() - .5) * 0.15;
+    if (f.kind.fly) { // ふらふら飛び回る
+      const p = f.mesh.position, b = bounds();
+      p.x = THREE.MathUtils.clamp(p.x + Math.sin(t * 2.3 + f.sway) * dt * 0.35, -b.x, b.x);
+      p.y = THREE.MathUtils.clamp(p.y + Math.cos(t * 1.9 + f.sway * 2) * dt * 0.25, FLOOR_Y + 0.4, b.yMax);
+      p.z = THREE.MathUtils.clamp(p.z + Math.sin(t * 1.7 + f.sway * 3) * dt * 0.3, b.zMin, b.zMax);
+      f.mesh.rotation.y = Math.sin(t * 2 + f.sway) * 1.5;
+      f.mesh.children.forEach(c => { if (c.userData.wing) c.rotation.y = Math.sin(t * 60) * 0.6 * c.userData.wing; });
+    }
     f.life -= dt;
     if (f.life < 0) { scene.remove(f.mesh); foods.splice(i, 1); if (f.dish) emptyDish(f.dish); }
   }
