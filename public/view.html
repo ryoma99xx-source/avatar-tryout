@@ -53,6 +53,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const q = new URLSearchParams(location.search);
 const glbUrl = q.get("u");
 const bodyType = q.get("t") || "";
+const nameParam = q.get("n") || "";
+const VERTICAL_NAMES = /タチウオ|太刀魚|たちうお|tachiuo|cutlass/i;  // 頭を上にして縦に泳ぐ魚
+const isVerticalFish = VERTICAL_NAMES.test(nameParam);
 const store = {
   get(k, d) { try { const v = localStorage.getItem("tank:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("tank:" + k, JSON.stringify(v)); } catch (e) {} },
@@ -123,9 +126,9 @@ const holder = new THREE.Group(); scene.add(holder);
 let parts = [];
 let lenAxis = 0, latAxis = 2, halfHeight = 0.25;
 let headSign = store.get("head:" + glbUrl, 1);
-const MODES = ["fish", "walk", "float"];
-const MODE_LABEL = { fish: "魚", walk: "歩く", float: "ふわふわ" };
-const defaultMode = bodyType === "" || bodyType === "fish" ? "fish" : bodyType === "insect_flying" ? "float" : "walk";
+const MODES = ["fish", "vertical", "walk", "float"];
+const MODE_LABEL = { fish: "魚", vertical: "立ち泳ぎ", walk: "歩く", float: "ふわふわ" };
+const defaultMode = isVerticalFish ? "vertical" : bodyType === "" || bodyType === "fish" ? "fish" : bodyType === "insect_flying" ? "float" : "walk";
 let mode = store.get("mode:" + glbUrl, defaultMode);
 
 // 姿勢：0〜3 = 画面の奥行き方向を軸に 90°ずつ回す。縦長のモデルは最初に横へ寝かせる
@@ -214,7 +217,9 @@ function clampToTank(v) {
   const b = bounds();
   v.x = THREE.MathUtils.clamp(v.x, -b.x, b.x);
   v.z = THREE.MathUtils.clamp(v.z, b.zMin, b.zMax);
-  if (mode === "walk") v.y = floorY(); else v.y = THREE.MathUtils.clamp(v.y, b.yMin, b.yMax);
+  if (mode === "walk") v.y = floorY();
+  else if (mode === "vertical") v.y = THREE.MathUtils.clamp(v.y, FLOOR_Y + 0.62, 0.55); // 縦の体が砂や上に出ないように
+  else v.y = THREE.MathUtils.clamp(v.y, b.yMin, b.yMax);
   return v;
 }
 function pickWander() {
@@ -225,9 +230,11 @@ function pickWander() {
 }
 pickWander();
 
-const headPoint = () => new THREE.Vector3(Math.sin(me.facing), 0, Math.cos(me.facing)).multiplyScalar(0.45).add(me.pos);
-const CRUISE = { fish: 0.45, walk: 0.22, float: 0.35 };
-const DASH = { fish: 1.1, walk: 0.45, float: 0.8 };
+const headPoint = () => mode === "vertical"
+  ? me.pos.clone().add(new THREE.Vector3(0, 0.45, 0))
+  : new THREE.Vector3(Math.sin(me.facing), 0, Math.cos(me.facing)).multiplyScalar(0.45).add(me.pos);
+const CRUISE = { fish: 0.45, vertical: 0.14, walk: 0.22, float: 0.35 };
+const DASH = { fish: 1.1, vertical: 0.9, walk: 0.45, float: 0.8 };
 
 function steer(dt) {
   const to = me.target.clone().sub(me.pos);
@@ -239,6 +246,7 @@ function steer(dt) {
   if (dist > 0.02) {
     // 向きをゆっくり目標へ
     let desired = Math.atan2(to.x, to.z);
+    if (mode === "vertical") desired = Math.atan2(camera.position.x - me.pos.x, camera.position.z - me.pos.z) + Math.sin(performance.now() / 2600) * 0.7;
     if (me.state === "stay") desired = Math.atan2(camera.position.x - me.pos.x, camera.position.z - me.pos.z);
     let d = desired - me.facing; d = Math.atan2(Math.sin(d), Math.cos(d));
     me.facing += THREE.MathUtils.clamp(d, -dt * 3.5, dt * 3.5);
@@ -260,7 +268,11 @@ function updateCreature(dt, t) {
   // 近くにエサがあれば向かう（呼ばれているときは呼ばれた方を優先）
   if (me.state !== "come" && me.state !== "stay" && me.state !== "eat") {
     const f = nearestFood();
-    if (f) { me.state = "food"; me.target.copy(f.mesh.position); if (mode === "walk") me.target.y = floorY(); }
+    if (f) {
+      me.state = "food"; me.target.copy(f.mesh.position);
+      if (mode === "walk") me.target.y = floorY();
+      if (mode === "vertical") me.target.y -= 0.42; // 頭の先で食べる位置へ
+    }
     else if (me.state === "food") pickWander();
   }
   const dist = steer(dt);
@@ -284,6 +296,18 @@ function updateCreature(dt, t) {
     deform(t, 0.03 + me.speed * 0.08 + (me.state === "stay" ? 0.03 : 0), swimSpeed);
     holder.position.set(me.pos.x, me.pos.y + Math.sin(t * 1.4) * 0.03, me.pos.z);
     holder.rotation.set(0, me.facing - headYaw(), Math.sin(t * 1.4) * 0.04);
+  } else if (mode === "vertical") {
+    // 体は立てたまま、細かく揺らして漂う。エサに向かうときだけ少し前へ傾く
+    deform(t, 0.012 + me.speed * 0.025, 10);
+    holder.position.set(me.pos.x, me.pos.y + Math.sin(t * 0.8) * 0.04, me.pos.z);
+    const headLocal = new THREE.Vector3(lenAxis === 0 ? headSign : 0, 0, lenAxis === 2 ? headSign : 0);
+    const qAlign = new THREE.Quaternion().setFromUnitVectors(headLocal, new THREE.Vector3(0, 1, 0));
+    const side = new THREE.Vector3(latAxis === 0 ? 1 : 0, 0, latAxis === 2 ? 1 : 0).applyQuaternion(qAlign);
+    const a0 = Math.atan2(side.x, side.z);
+    const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), me.facing - a0);
+    const lean = Math.min(0.35, me.speed * 0.35) * (me.state === "food" ? 1 : 0.3);
+    const qLean = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), lean * Math.sin(t * 0.5));
+    holder.quaternion.copy(qYaw).multiply(qAlign).premultiply(qLean);
   } else if (mode === "walk") {
     const step = me.speed > 0.03 ? Math.abs(Math.sin(t * 10)) * 0.025 : 0;
     holder.position.set(me.pos.x, me.pos.y + step, me.pos.z);
@@ -310,8 +334,9 @@ const FOODS = {
   mollusk_other:     { name: "葉っぱ",       count: 1, sink: 0.4,  spread: 0,    floor: true,  make: makeLeaf, bites: 3 },
   mammal:            { name: "ドッグフード", count: 6, sink: 0,    spread: 0,    floor: true,  make: makeKibble, dish: true },
 };
-const FOOD_BY_MODE = { fish: "fish", walk: "crab", float: "insect_flying" };
-const foodKind = () => FOODS[bodyType] ? bodyType : FOOD_BY_MODE[mode];
+FOODS.baitfish = { name: "キビナゴ", count: 3, sink: 0.08, spread: 0.45, floor: false, make: makeBait };
+const FOOD_BY_MODE = { fish: "fish", vertical: "baitfish", walk: "crab", float: "insect_flying" };
+const foodKind = () => isVerticalFish || mode === "vertical" ? "baitfish" : FOODS[bodyType] ? bodyType : FOOD_BY_MODE[mode];
 const foods = [];
 
 function makeFlake() {
@@ -349,6 +374,15 @@ function makeDish() {
   return new THREE.Mesh(new THREE.LatheGeometry(pts, 32), new THREE.MeshStandardMaterial({ color: 0xd9534f, roughness: .45, side: THREE.DoubleSide }));
 }
 const dishes = [];
+function makeBait() { // 小さな銀色の魚
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xcfd8e3, metalness: .6, roughness: .3 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.09, 4, 8), mat); body.rotation.z = Math.PI / 2; g.add(body);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.035, 4), mat); tail.rotation.z = Math.PI / 2; tail.position.x = -0.07; g.add(tail);
+  const stripe = new THREE.Mesh(new THREE.CapsuleGeometry(0.006, 0.08, 2, 6), new THREE.MeshStandardMaterial({ color: 0x5a8fd0 }));
+  stripe.rotation.z = Math.PI / 2; stripe.position.y = 0.004; stripe.position.z = 0.014; g.add(stripe);
+  g.scale.setScalar(1.7); g.rotation.y = Math.random() * Math.PI * 2; return g;
+}
 function makeLeaf() {
   const s = new THREE.Shape(); s.moveTo(0, -0.12); s.quadraticCurveTo(0.09, 0, 0, 0.12); s.quadraticCurveTo(-0.09, 0, 0, -0.12);
   const m = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ color: 0x6fbf4a, side: THREE.DoubleSide }));
@@ -389,7 +423,8 @@ function updateFoods(dt, t) {
     if (!f.landed) {
       f.mesh.position.y -= f.kind.sink * dt;
       if (f.kind === FOODS.fish) { f.mesh.position.x += Math.sin(t * 2 + f.sway) * 0.002; f.mesh.rotation.x += dt * 1.5; }
-      if (f.mesh.position.y <= y0) { f.mesh.position.y = y0; f.landed = true; }
+      if (f.kind === FOODS.baitfish) { f.mesh.position.x += Math.sin(t * 1.5 + f.sway) * 0.004; f.mesh.rotation.y += Math.sin(t * 3 + f.sway) * 0.02; }
+      if (f.mesh.position.y <= y0) { f.mesh.position.y = y0; f.landed = true; if (f.kind === FOODS.baitfish) f.life = Math.min(f.life, 4); }
     }
     if (f.landed && f.mesh.userData.hop && Math.random() < dt * 0.6) f.mesh.position.x += (Math.random() - .5) * 0.15;
     f.life -= dt;
@@ -401,6 +436,7 @@ function nearestFood() {
   for (const f of foods) {
     // 魚は底に落ちたフレークより水中のものを好む。歩く生き物は底に着いたものだけ
     if (mode === "walk" && !f.landed) continue;
+    if (mode === "vertical" && f.landed) continue;
     const d = f.mesh.position.distanceTo(me.pos) + (mode === "fish" && f.landed ? 0.8 : 0);
     if (d < bd) { bd = d; best = f; }
   }

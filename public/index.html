@@ -366,7 +366,7 @@ let history = store.get("history", []);
 $("#run").onclick = async () => {
   const { models, variants, n } = plan();
   running = true; $("#run").disabled = true;
-  const batch = { at: new Date().toLocaleString("ja-JP"), body: $("#body").value, rows: photos.map(p => ({ thumb: p.thumb, name: p.name, outs: [] })) };
+  const batch = { at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(), rows: photos.map(p => ({ thumb: p.thumb, name: p.name, outs: [] })) };
   const jobs = [];
   photos.forEach((p, pi) => {
     for (const withStyle of variants) for (const m of models) {
@@ -405,7 +405,7 @@ const m3dNow = () => (document.querySelector('input[name=m3d]:checked') || {}).v
 function render3d(o, b) {
   const box = el("div", { class: "d3" });
   if (o.glb) {
-    box.append(el("a", { href: `view.html?u=${encodeURIComponent(o.glb)}&t=${encodeURIComponent(b.body || "")}` }, "3Dで見る（泳ぐ）"));
+    box.append(el("a", { href: `view.html?u=${encodeURIComponent(o.glb)}&t=${encodeURIComponent(b.body || "")}&n=${encodeURIComponent(b.cname || "")}` }, "3Dで見る（泳ぐ）"));
     box.append(el("div", { class: "note" }, `${M3D[o.m3d]?.label || ""}・約${yen(M3D[o.m3d]?.usd || 0)}円`));
   } else if (o.job) {
     box.append(el("button", { disabled: "" }, "3D化中…"));
@@ -454,7 +454,7 @@ $("#file3d").onchange = async e => {
     const url = await shrink(raw, 1024, "image/jpeg", 0.92);
     const thumb = await shrink(raw, 200, "image/jpeg", 0.8);
     const o = { model: "手持ちのアバター", style: false, usd: 0, state: "ok", url };
-    history.unshift({ at: new Date().toLocaleString("ja-JP"), body: $("#body").value, rows: [{ thumb, name: f.name, outs: [o] }] });
+    history.unshift({ at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(), rows: [{ thumb, name: f.name, outs: [o] }] });
     $("#status3d").textContent = "3D化を始めました。下の一覧で進み具合が見られます";
     start3d(o, m3dNow());
     o.url = await shrink(raw, 400, "image/jpeg", 0.85); // 履歴に保存する分は軽くする
