@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     if (body.action === "submit") {
       const m = MODELS[body.model];
       if (!m) return res.status(400).json({ error: "知らない3Dモデルです" });
-      if (typeof body.imageUrl !== "string" || !body.imageUrl.startsWith("https://")) {
+      if (typeof body.imageUrl !== "string" || !(body.imageUrl.startsWith("https://") || body.imageUrl.startsWith("data:image/")) || body.imageUrl.length > 3_000_000) {
         return res.status(400).json({ error: "画像のURLが正しくありません" });
       }
       const r = await fetch(QUEUE + m.endpoint, {

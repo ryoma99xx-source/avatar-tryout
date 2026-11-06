@@ -100,6 +100,13 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
   </div>
 
   <div class="card">
+    <p class="step" style="margin-bottom:6px">作ってあるアバターを3Dにする</p>
+    <p class="muted" style="margin:0 0 10px">写真アプリに保存したアバター画像を選ぶと、作り直さずにそのまま3Dにします（約37〜45円）。種類は下の③で選んだものが動きに使われます。</p>
+    <div class="row"><button id="pick3d">アバター画像を選んで3Dにする</button><span class="status" id="status3d"></span></div>
+    <input type="file" id="file3d" accept="image/*" hidden>
+  </div>
+
+  <div class="card">
     <p class="step"><span class="n">3</span>生き物のこと（どちらも任意）</p>
     <div class="grid2">
       <label>種類<br>
@@ -423,6 +430,25 @@ async function poll3d(o) {
     if (Date.now() - o.job.started > 10 * 60 * 1000) { o.job = null; o.err3d = "時間がかかりすぎたので止めました。もう一度押してください"; saveHistory(); renderHistory(); return; }
   }
 }
+
+$("#pick3d").onclick = () => {
+  if (!$("#key").value.trim()) { $("#status3d").textContent = "先に合言葉を入れてください"; return; }
+  $("#file3d").click();
+};
+$("#file3d").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    const raw = await readAsDataURL(f);
+    const url = await shrink(raw, 1024, "image/jpeg", 0.92);
+    const thumb = await shrink(raw, 200, "image/jpeg", 0.8);
+    const o = { model: "手持ちのアバター", style: false, usd: 0, state: "ok", url };
+    history.unshift({ at: new Date().toLocaleString("ja-JP"), body: $("#body").value, rows: [{ thumb, name: f.name, outs: [o] }] });
+    $("#status3d").textContent = "3D化を始めました。下の一覧で進み具合が見られます";
+    start3d(o, m3dNow());
+    o.url = await shrink(raw, 400, "image/jpeg", 0.85); // 履歴に保存する分は軽くする
+    setTimeout(() => $("#results").scrollIntoView({ behavior: "smooth" }), 300);
+  } catch (err) { $("#status3d").textContent = "画像を読み込めませんでした"; }
+};
 
 function saveHistory() { store.set("history", history.slice(0, 30)); }
 
