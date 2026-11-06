@@ -56,6 +56,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .out .meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-top:6px;gap:6px}
 .out .meta b{font-weight:600}
 .out .err{color:var(--bad);font-size:12px;padding:10px;text-align:center;word-break:break-all}
+.d3{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.d3 button,.d3 a{font-size:13px;padding:7px 10px;border-radius:9px;text-align:center;text-decoration:none;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.d3 a{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.d3 .note{font-size:11px;color:var(--sub);text-align:center}
+.d3 .note.err{color:var(--bad)}
 .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 0.9s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
 .fav{border:none;background:none;font-size:18px;padding:0 2px;color:var(--sub)}
@@ -125,6 +130,11 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
       <label class="chip"><input type="checkbox" id="vNo" checked>お手本なし</label>
       <label class="chip"><input type="checkbox" id="vYes" checked>お手本あり</label>
       <label class="chip"><input type="file" id="styleFile" accept="image/*" hidden><span id="styleBtn" style="cursor:pointer">お手本を差し替える…</span></label>
+    </div>
+    <p class="muted" style="margin:14px 0 8px">3Dにするときのモデル（気に入ったアバターの「3Dにする」を押したときに使います）</p>
+    <div class="chips">
+      <label class="chip"><input type="radio" name="m3d" value="tripo">Tripo 2.5（約45円・正面の向きを合わせやすい）</label>
+      <label class="chip"><input type="radio" name="m3d" value="trellis">TRELLIS.2（約37円）</label>
     </div>
     <details style="margin-top:14px">
       <summary>指示文を見る・直す（上級者向け）</summary>
@@ -337,7 +347,7 @@ let history = store.get("history", []);
 $("#run").onclick = async () => {
   const { models, variants, n } = plan();
   running = true; $("#run").disabled = true;
-  const batch = { at: new Date().toLocaleString("ja-JP"), rows: photos.map(p => ({ thumb: p.thumb, name: p.name, outs: [] })) };
+  const batch = { at: new Date().toLocaleString("ja-JP"), body: $("#body").value, rows: photos.map(p => ({ thumb: p.thumb, name: p.name, outs: [] })) };
   const jobs = [];
   photos.forEach((p, pi) => {
     for (const withStyle of variants) for (const m of models) {
@@ -367,6 +377,53 @@ $("#run").onclick = async () => {
   else setStatus("完了しました。気に入ったものに♡を付けておくと見返しやすくなります。");
   $("#run").disabled = false;
 };
+// ---------- 3D化 ----------
+const M3D = { tripo: { label: "Tripo", usd: 0.30 }, trellis: { label: "TRELLIS.2", usd: 0.25 } };
+const m3dSaved = store.get("m3d", "tripo");
+document.querySelectorAll('input[name=m3d]').forEach(r => { r.checked = r.value === m3dSaved; r.onchange = () => store.set("m3d", r.value); });
+const m3dNow = () => (document.querySelector('input[name=m3d]:checked') || {}).value || "tripo";
+
+function render3d(o, b) {
+  const box = el("div", { class: "d3" });
+  if (o.glb) {
+    box.append(el("a", { href: `view.html?u=${encodeURIComponent(o.glb)}&t=${encodeURIComponent(b.body || "")}` }, "3Dで見る（泳ぐ）"));
+    box.append(el("div", { class: "note" }, `${M3D[o.m3d]?.label || ""}・約${yen(M3D[o.m3d]?.usd || 0)}円`));
+  } else if (o.job) {
+    box.append(el("button", { disabled: "" }, "3D化中…"));
+    box.append(el("div", { class: "note" }, "1〜3分ほどかかります。この画面を開いたままにしてください"));
+  } else {
+    const m = m3dNow();
+    box.append(el("button", { onclick: () => start3d(o, m) }, `3Dにする（約${yen(M3D[m].usd)}円）`));
+    if (o.err3d) box.append(el("div", { class: "note err" }, o.err3d));
+  }
+  return box;
+}
+async function api3d(payload) {
+  const res = await fetch("/api/to3d", { method: "POST", headers: { "Content-Type": "application/json", "x-access-code": $("#key").value.trim() }, body: JSON.stringify(payload) });
+  let data = null; try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error((data && data.error) || `エラー ${res.status}`);
+  return data;
+}
+async function start3d(o, model) {
+  o.err3d = null; o.m3d = model;
+  o.job = { started: Date.now() }; renderHistory();
+  try {
+    const d = await api3d({ action: "submit", imageUrl: o.url, model });
+    o.job = { ...o.job, statusUrl: d.statusUrl, responseUrl: d.responseUrl, model };
+    saveHistory(); poll3d(o);
+  } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderHistory(); }
+}
+async function poll3d(o) {
+  while (o.job && o.job.statusUrl) {
+    await new Promise(r => setTimeout(r, 4000));
+    try {
+      const d = await api3d({ action: "check", statusUrl: o.job.statusUrl, responseUrl: o.job.responseUrl, model: o.job.model });
+      if (d.done) { o.glb = d.glb; o.job = null; saveHistory(); renderHistory(); return; }
+    } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderHistory(); return; }
+    if (Date.now() - o.job.started > 10 * 60 * 1000) { o.job = null; o.err3d = "時間がかかりすぎたので止めました。もう一度押してください"; saveHistory(); renderHistory(); return; }
+  }
+}
+
 function saveHistory() { store.set("history", history.slice(0, 30)); }
 
 function renderHistory() {
@@ -382,9 +439,10 @@ function renderHistory() {
         else media = el("div", { class: "img" }, el("img", { src: o.url, loading: "lazy", onclick: () => { $("#lbImg").src = o.url; $("#lb").classList.add("on"); } }));
         const fav = el("button", { class: "fav" + (o.fav ? " on" : ""), title: "お気に入り", onclick: () => { o.fav = !o.fav; saveHistory(); renderHistory(); } }, o.fav ? "♥" : "♡");
         const dl = o.state === "ok" ? el("button", { class: "fav", title: "保存", onclick: () => download(o.url, `${r.name.replace(/\.[^.]+$/, "")}_${o.model}_${o.style ? "お手本あり" : "お手本なし"}.png`) }, "⤓") : null;
+        const d3 = o.state === "ok" ? render3d(o, b) : null;
         outs.append(el("div", { class: "out" }, media,
           el("div", { class: "meta" }, el("span", {}, el("b", {}, o.model), el("br"), el("span", { class: "muted" }, `${o.style ? "お手本あり" : "お手本なし"}・${o.sec != null ? o.sec + "秒・" : ""}${yen(o.usd)}円`)),
-            el("span", {}, fav, dl))));
+            el("span", {}, fav, dl)), d3));
       }
       wrap.append(el("div", { class: "res-row" }, el("div", { class: "orig" }, el("img", { src: r.thumb, title: r.name })), outs));
     }
@@ -403,7 +461,11 @@ $("#lb").onclick = () => $("#lb").classList.remove("on");
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("#lb").classList.remove("on"); });
 
 // 前回途中で閉じた「作成中」は失敗扱いにする
-history.forEach(b => b.rows.forEach(r => r.outs.forEach(o => { if (o.state === "run") { o.state = "err"; o.error = "途中で閉じられました"; } })));
+history.forEach(b => b.rows.forEach(r => r.outs.forEach(o => {
+  if (o.state === "run") { o.state = "err"; o.error = "途中で閉じられました"; }
+  if (o.job && o.job.statusUrl) setTimeout(() => poll3d(o), 500);
+  else if (o.job) o.job = null;
+})));
 renderHistory(); refresh();
 </script>
 </body>

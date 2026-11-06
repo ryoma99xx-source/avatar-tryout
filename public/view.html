@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3D水槽</title>
+<style>
+:root{ --ink:#eaf6ff; --sub:#a9c7da; --panel:rgba(8,30,48,.62); --line:rgba(255,255,255,.18); --accent:#5cc8ff; }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:#06263d;color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;overflow:hidden}
+canvas{display:block;touch-action:none}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px max(14px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));display:flex;gap:8px;flex-wrap:wrap;justify-content:center;background:linear-gradient(transparent,rgba(3,18,30,.75))}
+.top{position:fixed;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px));display:flex;justify-content:space-between;align-items:center;gap:10px}
+button,a.btn{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:9px 16px;cursor:pointer;text-decoration:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+button.on{border-color:var(--accent);color:#fff;background:rgba(40,140,200,.55)}
+.msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;pointer-events:none}
+.msg div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;max-width:420px}
+.hint{color:var(--sub);font-size:13px}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="top">
+  <a class="btn" href="./">← 戻る</a>
+  <span class="hint">指でぐるっと回せます</span>
+</div>
+<div class="msg" id="msg"><div>3Dモデルを読み込み中…</div></div>
+<div class="bar">
+  <button id="move" class="on">泳ぐ</button>
+  <button id="flip">向きを反転</button>
+  <button id="mode">動き：魚</button>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const q = new URLSearchParams(location.search);
+const glbUrl = q.get("u");
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("tank:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("tank:" + k, JSON.stringify(v)); } catch (e) {} },
+};
+const msg = t => { const m = document.getElementById("msg"); if (!t) { m.hidden = true; return; } m.hidden = false; m.firstElementChild.textContent = t; };
+if (!glbUrl) msg("3Dモデルが指定されていません。一覧から「3Dで見る」を押してください。");
+
+// ---------- 水槽 ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b3a5a);
+scene.fog = new THREE.Fog(0x0b3a5a, 6, 18);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.05, 50);
+const camDist = () => innerWidth / innerHeight < 1 ? Math.min(8, 3.4 / (innerWidth / innerHeight)) : 4.2;
+camera.position.set(0, 0.6, camDist());
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0); controls.enableDamping = true; controls.enablePan = false;
+controls.minDistance = 1.5; controls.maxDistance = 10; controls.maxPolarAngle = Math.PI * 0.62;
+
+scene.add(new THREE.HemisphereLight(0xd8f1ff, 0x1d3b2a, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(2, 4, 3); scene.add(sun);
+const rim = new THREE.DirectionalLight(0x9fdcff, 1.0); rim.position.set(-3, 1, -2); scene.add(rim);
+
+// 砂の床
+const sand = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.MeshStandardMaterial({ color: 0xcdb98a, roughness: 1 }));
+sand.rotation.x = -Math.PI / 2; sand.position.y = -1.1; scene.add(sand);
+// 小石
+const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8f9a8c, roughness: .9 });
+for (let i = 0; i < 14; i++) {
+  const s = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.12, 12, 10), stoneMat);
+  const a = Math.random() * Math.PI * 2, r = 1.2 + Math.random() * 2.2;
+  s.position.set(Math.cos(a) * r, -1.08, Math.sin(a) * r); s.scale.y = 0.55; scene.add(s);
+}
+// 水草
+const weedMat = new THREE.MeshStandardMaterial({ color: 0x3f9b5a, roughness: .7, side: THREE.DoubleSide });
+const weeds = [];
+for (let i = 0; i < 9; i++) {
+  const h = 0.9 + Math.random() * 1.0;
+  const g = new THREE.PlaneGeometry(0.08, h, 1, 8); g.translate(0, h / 2, 0);
+  const w = new THREE.Mesh(g, weedMat);
+  const a = Math.random() * Math.PI * 2, r = 1.9 + Math.random() * 1.4;
+  w.position.set(Math.cos(a) * r, -1.1, Math.sin(a) * r); w.rotation.y = Math.random() * Math.PI;
+  w.userData.base = g.attributes.position.array.slice(); w.userData.ph = Math.random() * 6;
+  scene.add(w); weeds.push(w);
+}
+// 泡
+const bubbleGeo = new THREE.BufferGeometry(); const NB = 60; const bp = new Float32Array(NB * 3);
+for (let i = 0; i < NB; i++) { bp[i * 3] = (Math.random() - .5) * 5; bp[i * 3 + 1] = -1 + Math.random() * 3; bp[i * 3 + 2] = (Math.random() - .5) * 5; }
+bubbleGeo.setAttribute("position", new THREE.BufferAttribute(bp, 3));
+const bubbles = new THREE.Points(bubbleGeo, new THREE.PointsMaterial({ color: 0xe6f7ff, size: 0.035, transparent: true, opacity: .7 }));
+scene.add(bubbles);
+
+// ---------- 生き物 ----------
+const holder = new THREE.Group(); scene.add(holder);
+let parts = [];          // {attr, base, s}
+let lenAxis = 0, latAxis = 2;
+let headSign = store.get("head:" + glbUrl, 1);
+let moving = true;
+const MODES = ["fish", "walk", "float"];
+const MODE_LABEL = { fish: "魚", walk: "歩く", float: "ふわふわ" };
+const typeParam = q.get("t") || "";
+let mode = store.get("mode:" + glbUrl, typeParam === "fish" || typeParam === "" ? "fish" : (typeParam === "insect_flying" ? "float" : "walk"));
+
+function setupCreature(root) {
+  root.updateMatrixWorld(true);
+  const meshes = [];
+  root.traverse(o => { if (o.isMesh) meshes.push(o); });
+  // 各メッシュの変形をジオメトリに焼き込み、同じ座標系で扱えるようにする
+  const box = new THREE.Box3();
+  for (const m of meshes) {
+    m.geometry = m.geometry.clone();
+    m.geometry.applyMatrix4(m.matrixWorld);
+    m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); m.scale.set(1, 1, 1); m.updateMatrix();
+    m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox);
+    holder.add(m);
+  }
+  const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+  lenAxis = size.x >= size.z ? 0 : 2; latAxis = lenAxis === 0 ? 2 : 0;
+  const len = Math.max(size.x, size.z) || 1;
+  const k = 1.0 / len; // 体長を約1.0にそろえる
+  for (const m of meshes) {
+    const g = m.geometry;
+    g.translate(-center.x, -center.y, -center.z); g.scale(k, k, k);
+    g.computeBoundingBox();
+    const attr = g.attributes.position;
+    parts.push({ attr, base: attr.array.slice() });
+  }
+  computeS();
+}
+function computeS() {
+  for (const p of parts) {
+    const n = p.attr.count; p.s = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = p.base[i * 3 + lenAxis] / 1.0; // -0.5..0.5
+      p.s[i] = Math.min(1, Math.max(0, 0.5 - headSign * x)); // 頭=0, しっぽ=1
+    }
+  }
+}
+function deform(t, amp) {
+  for (const p of parts) {
+    const a = p.attr.array, b = p.base, s = p.s, n = p.attr.count;
+    for (let i = 0; i < n; i++) {
+      const j = i * 3; const si = s[i];
+      a[j] = b[j]; a[j + 1] = b[j + 1]; a[j + 2] = b[j + 2];
+      a[j + latAxis] += amp * Math.sin(si * 4.2 - t * 7) * (0.05 + si * si);
+    }
+    p.attr.needsUpdate = true;
+  }
+}
+function resetShape() { for (const p of parts) { p.attr.array.set(p.base); p.attr.needsUpdate = true; } }
+
+function headYaw() { // 頭の向きのベクトルの角度
+  const hx = lenAxis === 0 ? headSign : 0, hz = lenAxis === 2 ? headSign : 0;
+  return Math.atan2(hx, hz);
+}
+
+if (glbUrl) {
+  new GLTFLoader().load(glbUrl, gltf => {
+    setupCreature(gltf.scene);
+    msg(null);
+  }, undefined, err => {
+    msg("3Dモデルを読み込めませんでした。時間をおいてもう一度開くか、一覧に戻って作り直してください。");
+    console.error(err);
+  });
+}
+
+// ---------- ボタン ----------
+const $ = id => document.getElementById(id);
+$("move").onclick = () => { moving = !moving; $("move").classList.toggle("on", moving); $("move").textContent = moving ? "泳ぐ" : "止まる"; if (!moving) resetShape(); };
+$("flip").onclick = () => { headSign *= -1; store.set("head:" + glbUrl, headSign); computeS(); };
+const modeBtn = $("mode");
+const showMode = () => { modeBtn.textContent = "動き：" + MODE_LABEL[mode]; };
+modeBtn.onclick = () => { mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]; store.set("mode:" + glbUrl, mode); resetShape(); showMode(); };
+showMode();
+
+// ---------- アニメーション ----------
+const clock = new THREE.Clock();
+let pathT = 0;
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  if (parts.length && moving) {
+    if (mode === "fish") {
+      pathT += dt * 0.35;
+      const R = 1.2, x = Math.cos(pathT) * R, z = Math.sin(pathT) * R * 0.7;
+      const vx = -Math.sin(pathT) * R, vz = Math.cos(pathT) * R * 0.7;
+      holder.position.set(x, Math.sin(t * 0.9) * 0.12, z);
+      holder.rotation.set(0, Math.atan2(vx, vz) - headYaw(), Math.sin(t * 0.9) * 0.05);
+      deform(t, 0.07);
+    } else if (mode === "walk") {
+      pathT += dt * 0.25;
+      const x = Math.sin(pathT) * 1.1;
+      holder.position.set(x, -0.62 + Math.abs(Math.sin(t * 6)) * 0.035, 0.2);
+      const dir = Math.cos(pathT) >= 0 ? 1 : -1;
+      holder.rotation.set(0, Math.atan2(dir, 0) - headYaw(), Math.sin(t * 6) * 0.03);
+    } else {
+      holder.position.set(Math.sin(t * 0.4) * 0.8, 0.1 + Math.sin(t * 1.3) * 0.25, Math.cos(t * 0.3) * 0.5);
+      holder.rotation.set(Math.sin(t * 1.3) * 0.08, t * 0.3, Math.sin(t * 0.8) * 0.06);
+    }
+  }
+  for (const w of weeds) {
+    const a = w.geometry.attributes.position, b = w.userData.base;
+    for (let i = 0; i < a.count; i++) { const y = b[i * 3 + 1]; a.array[i * 3] = b[i * 3] + Math.sin(t * 1.2 + w.userData.ph + y * 2) * 0.08 * y; }
+    a.needsUpdate = true;
+  }
+  const arr = bubbleGeo.attributes.position.array;
+  for (let i = 0; i < NB; i++) { arr[i * 3 + 1] += dt * (0.25 + (i % 5) * 0.06); if (arr[i * 3 + 1] > 2.2) arr[i * 3 + 1] = -1.05; }
+  bubbleGeo.attributes.position.needsUpdate = true;
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+</script>
+</body>
+</html>
