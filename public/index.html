@@ -109,6 +109,9 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
   <div class="card">
     <p class="step"><span class="n">3</span>生き物のこと（どちらも任意）</p>
     <div class="grid2">
+      <label>名前（わかれば。例：タチウオ、サワガニ）<br>
+        <input type="text" id="name" placeholder="例：タチウオ" autocomplete="off">
+      </label>
       <label>種類<br>
         <select id="body">
           <option value="">おまかせ</option>
@@ -177,8 +180,8 @@ const MODELS = [
 ];
 
 const BODY_HINTS = {
-  fish: "Fins are soft, rounded and slightly translucent. Body is plump and rounded. Show the full body from a 3/4 side view.",
-  shrimp: "Legs and antennae are short, thick and rounded (no thin spindly parts). Tail fan is soft and rounded. Show the full body from a 3/4 side view.",
+  fish: "Keep the real body shape of this fish: a long, slender fish stays long and slender, a flat fish stays flat, a round fish stays round. Fins are soft and slightly translucent, and only the fins this fish really has. Side view (profile), body horizontal, head pointing to the right.",
+  shrimp: "Legs and antennae are short, thick and rounded (no thin spindly parts). Tail fan is soft and rounded. Side view (profile), body horizontal, head pointing to the right.",
   crab: "Body is round and plump, claws are big, rounded and chunky, legs are short and thick (no thin spindly parts). Show the full body from a 3/4 front view.",
   insect_walking: "Six short, thick, rounded legs and short, thick antennae (no thin spindly parts). Body segments are rounded and glossy. Show the full body from a 3/4 front view, standing.",
   insect_flying: "Wings are soft, rounded and slightly translucent, attached clearly to the body. Legs short and thick. Show the full body from a 3/4 front view with wings open.",
@@ -196,7 +199,11 @@ Keep its real color palette and the placement of its markings, simplified but cl
 
 STYLE:
 Premium 3D render like a high-end mobile game mascot or a designer vinyl toy.
-Soft, rounded, chubby proportions with a slightly oversized head.
+Make it cute through a slightly larger head, large eyes and soft rounded edges, NOT by changing its body shape.
+
+KEEP THE REAL SILHOUETTE:
+Keep this species' real body proportions and outline. Do not shorten, fatten or round off a long or flat body.
+Do not add body parts the real creature does not have (for example, no tail fin on a fish that has none), and do not remove parts it has.
 Large glossy eyes with bright catchlights, friendly expression.
 Smooth clean surfaces with subtle texture, soft studio lighting, gentle rim light, light subsurface glow.
 {BODY}
@@ -274,6 +281,8 @@ window.addEventListener("paste", e => { const fs = [...(e.clipboardData?.files |
 
 // ---------- 3/4. 設定 ----------
 $("#body").value = store.get("body", "");
+$("#name").value = store.get("name", "");
+$("#name").oninput = () => store.set("name", $("#name").value);
 $("#notes").value = store.get("notes", "");
 $("#body").onchange = () => store.set("body", $("#body").value);
 $("#notes").oninput = () => store.set("notes", $("#notes").value);
@@ -298,12 +307,13 @@ $("#tplReset").onclick = () => { $("#tpl").value = TEMPLATE; store.set("tpl", TE
 
 function buildPrompt(withStyle) {
   const body = $("#body").value;
+  const name = $("#name").value.trim();
   const notes = $("#notes").value.trim();
   const traits = notes
     ? notes.split(/\n|、|。|,/).map(s => s.trim()).filter(Boolean).map(s => "- " + s).join("\n") + "\n(The notes above may be written in Japanese. Follow them carefully.)"
     : "- Its body shape, colors and markings exactly as seen in image 1";
   let p = $("#tpl").value
-    .replace("{SPECIES}", body ? ` (a ${BODY_NAMES[body]})` : "")
+    .replace("{SPECIES}", name ? ` (species: ${name}${body ? ", a " + BODY_NAMES[body] : ""}. Use your knowledge of what this species really looks like)` : body ? ` (a ${BODY_NAMES[body]})` : "")
     .replace("{TRAITS}", traits)
     .replace("{BODY}", BODY_HINTS[body] || "");
   if (withStyle) p += STYLE_ADDON;

@@ -40,7 +40,8 @@ button:active{transform:scale(.97)}
 <div class="msg" id="msg"><div>3Dモデルを読み込み中…</div></div>
 <div class="bar">
   <button id="feed" class="feed">エサをあげる</button>
-  <button id="flip">向きを反転</button>
+  <button id="rot">姿勢を直す</button>
+  <button id="flip">頭としっぽ</button>
   <button id="mode">動き：魚</button>
 </div>
 
@@ -127,22 +128,37 @@ const MODE_LABEL = { fish: "魚", walk: "歩く", float: "ふわふわ" };
 const defaultMode = bodyType === "" || bodyType === "fish" ? "fish" : bodyType === "insect_flying" ? "float" : "walk";
 let mode = store.get("mode:" + glbUrl, defaultMode);
 
+// 姿勢：0〜3 = 画面の奥行き方向を軸に 90°ずつ回す。縦長のモデルは最初に横へ寝かせる
+let rotSteps = store.get("rot:" + glbUrl, null);
+let meshes = [], origGeos = [], elong = 1;
 function setupCreature(root) {
   root.updateMatrixWorld(true);
-  const meshes = [];
   root.traverse(o => { if (o.isMesh) meshes.push(o); });
   const box = new THREE.Box3();
   for (const m of meshes) {
-    m.geometry = m.geometry.clone();
-    m.geometry.applyMatrix4(m.matrixWorld);
+    const g = m.geometry.clone(); g.applyMatrix4(m.matrixWorld);
+    origGeos.push(g);
     m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); m.scale.set(1, 1, 1); m.updateMatrix();
-    m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox);
+    g.computeBoundingBox(); box.union(g.boundingBox);
     holder.add(m);
   }
+  if (rotSteps == null) { // 縦が一番長ければ横に寝かせる
+    const sz = box.getSize(new THREE.Vector3());
+    rotSteps = sz.y > Math.max(sz.x, sz.z) * 1.15 ? 1 : 0;
+  }
+  orient();
+}
+function orient() {
+  const R = new THREE.Matrix4().makeRotationZ(-rotSteps * Math.PI / 2);
+  const box = new THREE.Box3();
+  meshes.forEach((m, i) => { m.geometry = origGeos[i].clone().applyMatrix4(R); m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox); });
   const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
   lenAxis = size.x >= size.z ? 0 : 2; latAxis = lenAxis === 0 ? 2 : 0;
-  const k = 1.0 / (Math.max(size.x, size.z) || 1); // 体長を約1.0にそろえる
+  const len = Math.max(size.x, size.z) || 1;
+  elong = len / Math.max(size.y, Math.min(size.x, size.z), 1e-6); // 細長さ（タチウオやウナギは大きい）
+  const k = 1.0 / len; // 体長を約1.0にそろえる
   halfHeight = size.y * k / 2;
+  parts = [];
   for (const m of meshes) {
     const g = m.geometry;
     g.translate(-center.x, -center.y, -center.z); g.scale(k, k, k); g.computeBoundingBox();
@@ -157,12 +173,15 @@ function computeS() {
   }
 }
 function deform(t, amp, speed) {
+  const eel = elong > 4;
   for (const p of parts) {
     const a = p.attr.array, b = p.base, s = p.s, n = p.attr.count;
     for (let i = 0; i < n; i++) {
       const j = i * 3, si = s[i];
       a[j] = b[j]; a[j + 1] = b[j + 1]; a[j + 2] = b[j + 2];
-      a[j + latAxis] += amp * Math.sin(si * 4.2 - t * speed) * (0.05 + si * si);
+      a[j + latAxis] += eel
+        ? amp * 0.8 * Math.sin(si * 9 - t * speed) * (0.25 + 0.75 * si)   // 細長い体は全身をくねらせる
+        : amp * Math.sin(si * 4.2 - t * speed) * (0.05 + si * si);       // ふつうの魚はしっぽ側を振る
     }
     p.attr.needsUpdate = true;
   }
@@ -455,6 +474,7 @@ const feedBtn = $("feed");
 const showFeed = () => { feedBtn.textContent = "エサ：" + FOODS[foodKind()].name; };
 feedBtn.onclick = dropFood;
 $("flip").onclick = () => { headSign *= -1; store.set("head:" + glbUrl, headSign); computeS(); };
+$("rot").onclick = () => { if (!meshes.length) return; rotSteps = (rotSteps + 1) % 4; store.set("rot:" + glbUrl, rotSteps); orient(); clampToTank(me.pos); };
 const modeBtn = $("mode");
 const showMode = () => { modeBtn.textContent = "動き：" + MODE_LABEL[mode]; showFeed(); };
 modeBtn.onclick = () => {
