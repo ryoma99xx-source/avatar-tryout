@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>アバター試作</title>
+<style>
+/* 上から順に進む3ステップ。各ステップは見出し帯＋カードで区切る */
+:root{
+  --bg:#f3f5f4; --panel:#fff; --ink:#18201d; --sub:#66706c; --line:#dfe4e1;
+  --accent:#1f6feb; --accent-ink:#fff; --soft:#eaf1fe; --bad:#c2412d; --good:#1d8a52; --sea:#0e5f7d;
+  --s1:#1f6feb; --s2:#7a4fd6; --s3:#0e8a74;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#121614; --panel:#1b201e; --ink:#e9eeec; --sub:#98a29e; --line:#2f3633;
+    --accent:#6b9cff; --accent-ink:#0d1420; --soft:#1c2638; --bad:#ff7a63; --good:#4cc283; --sea:#5cc0e0;
+    --s1:#6b9cff; --s2:#a988f0; --s3:#43c7ac; color-scheme:dark; }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding-block:24px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:22px;margin:0 0 4px}
+.lead{color:var(--sub);margin:0 0 14px}
+.flow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 18px;font-size:13px}
+.flow a{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:var(--panel);border:1px solid var(--line);color:var(--ink);text-decoration:none}
+.flow a b{display:inline-flex;width:20px;height:20px;border-radius:50%;align-items:center;justify-content:center;color:#fff;font-size:12px}
+.flow .arrow{color:var(--sub)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+.card h3{font-size:15px;margin:0 0 10px}
+.stephead{display:flex;align-items:center;gap:10px;margin:30px 0 12px;scroll-margin-top:12px}
+.stephead .tag{font-size:12px;font-weight:700;letter-spacing:.06em;color:#fff;padding:3px 10px;border-radius:99px}
+.stephead h2{font-size:19px;margin:0}
+.stephead .cost{margin-left:auto;color:var(--sub);font-size:13px}
+.s1 .tag,.flow .f1 b{background:var(--s1)} .s2 .tag,.flow .f2 b{background:var(--s2)} .s3 .tag,.flow .f3 b{background:var(--s3)}
+input[type=password],input[type=text],textarea,select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%}
+textarea{min-height:64px;resize:vertical}
+label{display:block}
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.muted{color:var(--sub);font-size:13px}
+a{color:var(--accent)}
+button,a.button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 14px;text-decoration:none;display:inline-block;text-align:center}
+button.primary,a.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;padding:12px 22px;font-size:16px}
+button.p2{background:var(--s2);border-color:var(--s2);color:#fff}
+a.p3{background:var(--s3);border-color:var(--s3);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--sub);cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--soft);color:var(--ink)}
+.thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.thumbs figure{margin:0;position:relative}
+.thumbs img{width:88px;height:88px;object-fit:cover;border-radius:9px;border:1px solid var(--line);display:block}
+.thumbs button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;padding:0;border-radius:50%;font-size:13px;line-height:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:5px 12px;cursor:pointer;user-select:none;background:var(--bg)}
+.chip input{margin:0}
+.chip:has(input:checked){border-color:var(--accent);background:var(--soft)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.go{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.status{font-size:14px;min-width:0}
+.status.err{color:var(--bad)}
+.batch-head{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;gap:10px}
+.res-row{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.res-row:first-of-type{border-top:none;padding-top:0}
+.res-row .orig img{width:120px;height:120px;object-fit:contain;background:#000;border-radius:10px;display:block}
+.outs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;min-width:0}
+.out{border:1px solid var(--line);border-radius:12px;padding:8px;background:var(--bg)}
+.out.sel{border-color:var(--s2);box-shadow:0 0 0 2px var(--s2) inset}
+.out .img{aspect-ratio:1;max-width:100%;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.out .img img{width:100%;height:100%;object-fit:contain;cursor:zoom-in}
+.out .meta{display:flex;justify-content:space-between;align-items:flex-start;font-size:12px;margin-top:6px;gap:6px}
+.out .meta b{font-weight:600}
+.out .err{color:var(--bad);font-size:12px;padding:10px;text-align:center;word-break:break-all}
+.out .pick{width:100%;margin-top:8px;font-size:13px;padding:8px}
+.out .pick.on{background:var(--s2);border-color:var(--s2);color:#fff}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:var(--s3);color:#fff;margin-left:4px}
+.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .9s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ .spin{animation-duration:3s} }
+.icon{border:none;background:none;font-size:18px;padding:0 2px;color:var(--sub)}
+.icon.on{color:#e0457b}
+.lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;padding:20px}
+.lb.on{display:flex}
+.lb img{max-width:94vw;max-height:90vh;background:#fff;border-radius:10px}
+details summary{cursor:pointer;color:var(--sub);font-size:14px}
+.style-prev{width:56px;height:56px;border-radius:8px;object-fit:cover;vertical-align:middle;border:1px solid var(--line)}
+.sel-box{display:grid;grid-template-columns:180px 1fr;gap:18px;align-items:start}
+.sel-img{width:180px;aspect-ratio:1;max-width:100%;border-radius:12px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--sub);font-size:13px;text-align:center;padding:10px}
+.sel-img img{width:100%;height:100%;object-fit:contain}
+.sel-img.empty{background:var(--bg);border-style:dashed}
+.progress{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px 0 4px}
+.progress div{height:100%;background:var(--s2);width:0;transition:width .8s}
+.tips{margin:10px 0 0;padding-left:20px;color:var(--sub);font-size:14px}
+.key-saved{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (max-width:640px){
+  .grid2{grid-template-columns:1fr}
+  .res-row{grid-template-columns:1fr}
+  .res-row .orig img{width:90px;height:90px}
+  .outs{grid-template-columns:1fr 1fr;gap:8px}
+  .sel-box{grid-template-columns:1fr}
+  .sel-img{width:100%;max-width:260px}
+  .stephead .cost{width:100%;margin-left:0}
+  .stephead{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>アバター試作</h1>
+  <p class="lead">捕まえた生き物の写真から、可愛いアバターを作って3Dにし、水槽で飼います。</p>
+  <nav class="flow" aria-label="手順">
+    <a class="f1" href="#step1"><b>1</b>アバターを作る</a><span class="arrow">→</span>
+    <a class="f2" href="#step2"><b>2</b>3Dにする</a><span class="arrow">→</span>
+    <a class="f3" href="#step3"><b>3</b>水槽で飼う</a>
+  </nav>
+
+  <div class="card" id="keyCard">
+    <h3>合言葉（最初に一度だけ）</h3>
+    <div id="keyEdit">
+      <div class="row">
+        <input type="password" id="key" placeholder="Vercelで決めた合言葉" style="flex:1;min-width:200px" autocomplete="off">
+        <button id="keySave">保存</button>
+      </div>
+      <p class="muted" style="margin:8px 0 0">他の人に使われてクレジットが減らないようにするための鍵です。この端末にだけ保存されます。</p>
+    </div>
+    <div class="key-saved" id="keyShow" hidden><span>保存済みです</span><button id="keyChange">変更する</button></div>
+  </div>
+
+  <!-- ===================== STEP 1 ===================== -->
+  <div class="stephead s1" id="step1"><span class="tag">STEP 1</span><h2>アバターを作る</h2><span class="cost">Museなら1枚 約1.5円</span></div>
+
+  <div class="card">
+    <h3>写真</h3>
+    <div class="row" style="margin-bottom:10px">
+      <button id="shoot">カメラで撮る</button>
+      <span class="muted">または下に写真を入れる（何枚でも）</span>
+    </div>
+    <input type="file" id="cam" accept="image/*" capture="environment" hidden>
+    <div class="drop" id="drop">ここに写真をドラッグ、またはタップして選ぶ<br><span class="muted">ブレ・暗い・小さい写真もそのままでOK</span></div>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+    <div class="thumbs" id="thumbs"></div>
+  </div>
+
+  <div class="card">
+    <h3>生き物のこと（どれも任意）</h3>
+    <div class="grid2">
+      <label>名前（わかれば）<br><input type="text" id="name" placeholder="例：タチウオ、サワガニ" autocomplete="off"></label>
+      <label>種類（動き方とエサに使います）<br>
+        <select id="body">
+          <option value="">おまかせ</option>
+          <option value="fish">魚</option>
+          <option value="shrimp">エビ・ザリガニ</option>
+          <option value="crab">カニ・ヤドカリ</option>
+          <option value="insect_walking">歩く虫（カブトムシ、ダンゴムシなど）</option>
+          <option value="insect_flying">飛ぶ虫（チョウ、トンボなど）</option>
+          <option value="amphibian_reptile">カエル・トカゲ</option>
+          <option value="mammal">哺乳類（犬・猫・ネズミなど）</option>
+          <option value="mollusk_other">その他（貝、カタツムリなど）</option>
+        </select>
+      </label>
+    </div>
+    <label style="margin-top:12px">この子の特徴メモ（日本語でOK）<br>
+      <textarea id="notes" placeholder="例：目の上に青い帯、顔が黄色、お腹がオレンジ、しっぽの先が欠けている"></textarea>
+    </label>
+    <p class="muted" style="margin:6px 0 0">写真がぼやけていても、ここに書いた模様や色は残るように指示します。</p>
+  </div>
+
+  <div class="card">
+    <h3>作り方</h3>
+    <p class="muted" style="margin:0 0 8px">使うAI</p>
+    <div class="chips" id="models"></div>
+    <p class="muted" style="margin:14px 0 8px">絵柄のお手本 <img class="style-prev" id="stylePrev" alt="お手本画像"></p>
+    <div class="chips">
+      <label class="chip"><input type="checkbox" id="vNo" checked>お手本なし</label>
+      <label class="chip"><input type="checkbox" id="vYes" checked>お手本あり</label>
+      <button id="styleBtn" class="chip" type="button">お手本を差し替える…</button>
+      <input type="file" id="styleFile" accept="image/*" hidden>
+    </div>
+    <details style="margin-top:14px">
+      <summary>指示文を見る・直す（上級者向け）</summary>
+      <p class="muted">{SPECIES} {TRAITS} {BODY} は自動で置き換わります。お手本ありのときは最後に「2枚目は絵柄のお手本」という段落が自動で足されます。</p>
+      <textarea id="tpl" style="min-height:280px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+      <div class="row" style="margin-top:8px"><button id="tplReset">元に戻す</button></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="go">
+      <button class="primary" id="run" disabled>アバターを作る</button>
+      <span class="status" id="status">写真を入れてください</span>
+    </div>
+    <div id="latest" style="margin-top:14px" hidden></div>
+  </div>
+
+  <!-- ===================== STEP 2 ===================== -->
+  <div class="stephead s2" id="step2"><span class="tag">STEP 2</span><h2>3Dにする</h2><span class="cost">1体 約37〜45円・1〜3分</span></div>
+  <div class="card">
+    <div class="sel-box">
+      <div class="sel-img empty" id="selImg">STEP 1の結果で「この子を3Dにする」を押してください</div>
+      <div style="min-width:0">
+        <h3 id="selTitle">3Dにするアバター：まだ選ばれていません</h3>
+        <p class="muted" style="margin:0 0 8px">3Dを作るAI</p>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="m3d" value="tripo">Tripo 2.5（約45円・向きが揃いやすい）</label>
+          <label class="chip"><input type="radio" name="m3d" value="trellis">TRELLIS.2（約37円）</label>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="primary p2" id="go3d" disabled>3Dにする</button>
+          <span class="status" id="status3d"></span>
+        </div>
+        <div id="prog" hidden><div class="progress"><div id="progBar"></div></div><span class="muted" id="progText"></span></div>
+        <p class="muted" style="margin:16px 0 6px">写真アプリに保存してあるアバター画像から3Dにすることもできます</p>
+        <button id="pick3d">保存したアバター画像を選ぶ</button>
+        <input type="file" id="file3d" accept="image/*" hidden>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== STEP 3 ===================== -->
+  <div class="stephead s3" id="step3"><span class="tag">STEP 3</span><h2>水槽で飼う</h2></div>
+  <div class="card">
+    <div id="tankReady" hidden>
+      <a class="button primary p3" id="tankLink" href="#">3D水槽で見る</a>
+      <ul class="tips">
+        <li>「エサ」ボタンで、種類に合ったエサをあげられます</li>
+        <li>水槽をダブルタップすると、その場所まで寄ってきます</li>
+        <li>傾いていたら「姿勢を直す」、頭が逆なら「頭としっぽ」</li>
+      </ul>
+    </div>
+    <p class="muted" id="tankWait" style="margin:0">STEP 2で3Dにすると、ここから水槽に入れられます。</p>
+  </div>
+
+  <!-- ===================== 履歴 ===================== -->
+  <div class="stephead" id="histHead" hidden><h2 style="font-size:16px">これまでに作ったもの</h2><span class="cost"><button id="clearHist">履歴を消す</button></span></div>
+  <div id="history"></div>
+</div>
+<div class="lb" id="lb"><img id="lbImg" alt=""></div>
+
+<script>
+const STYLE_DEFAULT = "data:image/jpeg;base64,__STYLE_B64__";
+const USD_JPY = 150;
+const MODELS = [
+  { id: "muse",     label: "Muse Image",        usd: 0.01,  on: true },
+  { id: "klein",    label: "FLUX.2 klein",      usd: 0.025, on: false },
+  { id: "seedream", label: "Seedream 5.0 Lite", usd: 0.035, on: false },
+  { id: "nb2",      label: "Nano Banana 2",     usd: 0.06,  on: false },
+];
+const M3D = { tripo: { label: "Tripo 2.5", usd: 0.30 }, trellis: { label: "TRELLIS.2", usd: 0.25 } };
+
+const BODY_HINTS = {
+  fish: "Keep the real body shape of this fish: a long, slender fish stays long and slender, a flat fish stays flat, a round fish stays round. Fins are soft and slightly translucent, and only the fins this fish really has. Side view (profile), body horizontal, head pointing to the right.",
+  shrimp: "Legs and antennae are short, thick and rounded (no thin spindly parts). Tail fan is soft and rounded. Side view (profile), body horizontal, head pointing to the right.",
+  crab: "Body is round and plump, claws are big, rounded and chunky, legs are short and thick (no thin spindly parts). Show the full body from a 3/4 front view.",
+  insect_walking: "Six short, thick, rounded legs and short, thick antennae (no thin spindly parts). Body segments are rounded and glossy. Show the full body from a 3/4 front view, standing.",
+  insect_flying: "Wings are soft, rounded and slightly translucent, attached clearly to the body. Legs short and thick. Show the full body from a 3/4 front view with wings open.",
+  amphibian_reptile: "Limbs are short and chubby with rounded toes. Show the full body from a 3/4 front view, sitting.",
+  mollusk_other: "Soft rounded shapes, simple silhouette. Show the full body from a 3/4 front view.",
+  mammal: "Big round head, short chubby legs, soft fur simplified into smooth rounded shapes, small rounded paws. Show the full body from a 3/4 front view, standing on four legs.",
+};
+const BODY_NAMES = { fish: "fish", shrimp: "shrimp or crayfish", crab: "crab", insect_walking: "insect", insect_flying: "flying insect", amphibian_reptile: "amphibian or reptile", mollusk_other: "small creature", mammal: "small mammal" };
+
+const TEMPLATE = `Create a cute stylized 3D character of the creature in image 1{SPECIES}.
+
+KEEP THIS INDIVIDUAL'S IDENTITY (most important):
+{TRAITS}
+Keep its real color palette and the placement of its markings, simplified but clearly recognizable.
+
+STYLE:
+Premium 3D render like a high-end mobile game mascot or a designer vinyl toy.
+Make it cute through a slightly larger head, large eyes and soft rounded edges, NOT by changing its body shape.
+
+KEEP THE REAL SILHOUETTE:
+Keep this species' real body proportions and outline. Do not shorten, fatten or round off a long or flat body.
+Do not add body parts the real creature does not have (for example, no tail fin on a fish that has none), and do not remove parts it has.
+Large glossy eyes with bright catchlights, friendly expression.
+Smooth clean surfaces with subtle texture, soft studio lighting, gentle rim light, light subsurface glow.
+{BODY}
+
+COMPOSITION:
+One single character, full body fully inside the frame, centered, nothing cropped.
+Plain pure white background, no ground, no props, no text, no border.
+
+THE PHOTO MAY BE BAD:
+Ignore the background, hands, buckets, nets, water surface, reflections, blur, noise and color cast in the photo.
+If parts are unclear or cut off, reconstruct them naturally based on what this species looks like.`;
+
+const STYLE_ADDON = `
+
+IMAGE 2 IS A STYLE REFERENCE ONLY:
+Match the rendering quality, cuteness, proportions, eye style and lighting of image 2.
+Do NOT copy the species, shape, colors or markings of image 2. Those must come from image 1.`;
+
+// ---------- 保存（この端末のブラウザだけ） ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("avtool:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("avtool:" + k, JSON.stringify(v)); } catch (e) {} },
+};
+const $ = s => document.querySelector(s);
+const el = (t, a = {}, ...kids) => { const e = document.createElement(t);
+  for (const [k, v] of Object.entries(a)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e[k] = v; else e.setAttribute(k, v); }
+  for (const k of kids) if (k != null) e.append(k); return e; };
+const yen = usd => (usd * USD_JPY).toFixed(1);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const code = () => store.get("key", "");
+
+// ---------- 合言葉 ----------
+function showKey() { const has = !!code(); $("#keyEdit").hidden = has; $("#keyShow").hidden = !has; }
+$("#keySave").onclick = () => { const v = $("#key").value.trim(); if (!v) return; store.set("key", v); showKey(); refresh(); refresh3d(); };
+$("#key").onkeydown = e => { if (e.key === "Enter") $("#keySave").click(); };
+$("#keyChange").onclick = () => { $("#key").value = code(); $("#keyEdit").hidden = false; $("#keyShow").hidden = true; $("#key").focus(); };
+showKey();
+
+// ---------- 写真 ----------
+let photos = [];
+function readAsDataURL(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
+function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+async function shrink(src, max, type = "image/jpeg", q = 0.9) {
+  const img = await loadImg(src);
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL(type, q);
+}
+async function addFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith("image/") && !/\.(heic|heif)$/i.test(f.name)) continue;
+    try {
+      const raw = await readAsDataURL(f);
+      photos.push({ name: f.name, dataUrl: await shrink(raw, 1024), thumb: await shrink(raw, 200, "image/jpeg", 0.8) });
+    } catch (e) { setStatus(`${f.name} を読み込めませんでした（JPEGで書き出してから入れてください）`, true); }
+  }
+  renderThumbs(); refresh();
+}
+function renderThumbs() {
+  const box = $("#thumbs"); box.innerHTML = "";
+  photos.forEach((p, i) => box.append(el("figure", {}, el("img", { src: p.thumb, alt: p.name }),
+    el("button", { title: "外す", "aria-label": "外す", onclick: () => { photos.splice(i, 1); renderThumbs(); refresh(); } }, "×"))));
+}
+$("#shoot").onclick = () => $("#cam").click();
+$("#cam").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+const drop = $("#drop");
+drop.onclick = () => $("#file").click();
+$("#file").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); addFiles([...e.dataTransfer.files]); };
+
+// ---------- 生き物のこと・作り方 ----------
+for (const id of ["name", "body", "notes"]) { $("#" + id).value = store.get(id, ""); $("#" + id).oninput = () => store.set(id, $("#" + id).value); }
+const modelOn = store.get("models", Object.fromEntries(MODELS.map(m => [m.id, m.on])));
+for (const m of MODELS) {
+  const cb = el("input", { type: "checkbox" }); cb.checked = !!modelOn[m.id];
+  cb.onchange = () => { modelOn[m.id] = cb.checked; store.set("models", modelOn); refresh(); };
+  $("#models").append(el("label", { class: "chip" }, cb, `${m.label}（約${yen(m.usd)}円）`));
+}
+["vNo", "vYes"].forEach(id => { $("#" + id).checked = store.get(id, true); $("#" + id).onchange = () => { store.set(id, $("#" + id).checked); refresh(); }; });
+let styleUrl = store.get("style", STYLE_DEFAULT);
+$("#stylePrev").src = styleUrl;
+$("#styleBtn").onclick = () => $("#styleFile").click();
+$("#styleFile").onchange = async e => { const f = e.target.files[0]; if (!f) return;
+  styleUrl = await shrink(await readAsDataURL(f), 512); $("#stylePrev").src = styleUrl; store.set("style", styleUrl); };
+$("#tpl").value = store.get("tpl2", TEMPLATE);
+$("#tpl").oninput = () => store.set("tpl2", $("#tpl").value);
+$("#tplReset").onclick = () => { $("#tpl").value = TEMPLATE; store.set("tpl2", TEMPLATE); };
+
+function buildPrompt(withStyle) {
+  const body = $("#body").value, name = $("#name").value.trim(), notes = $("#notes").value.trim();
+  const traits = notes
+    ? notes.split(/\n|、|。|,/).map(s => s.trim()).filter(Boolean).map(s => "- " + s).join("\n") + "\n(The notes above may be written in Japanese. Follow them carefully.)"
+    : "- Its body shape, colors and markings exactly as seen in image 1";
+  let p = $("#tpl").value
+    .replace("{SPECIES}", name ? ` (species: ${name}${body ? ", a " + BODY_NAMES[body] : ""}. Use your knowledge of what this species really looks like)` : body ? ` (a ${BODY_NAMES[body]})` : "")
+    .replace("{TRAITS}", traits)
+    .replace("{BODY}", BODY_HINTS[body] || "");
+  if (withStyle) p += STYLE_ADDON;
+  return p;
+}
+function plan() {
+  const models = MODELS.filter(m => modelOn[m.id]);
+  const variants = [];
+  if ($("#vNo").checked) variants.push(false);
+  if ($("#vYes").checked) variants.push(true);
+  const n = photos.length * models.length * variants.length;
+  const usd = photos.length * variants.length * models.reduce((a, m) => a + m.usd, 0);
+  return { models, variants, n, usd };
+}
+function setStatus(t, err = false) { const s = $("#status"); s.textContent = t; s.classList.toggle("err", err); }
+let running = false;
+function refresh() {
+  const { models, variants, n, usd } = plan();
+  let msg = "", ok = false;
+  if (!code()) msg = "上で合言葉を保存してください";
+  else if (!photos.length) msg = "写真を入れてください";
+  else if (!models.length) msg = "使うAIを1つ以上選んでください";
+  else if (!variants.length) msg = "「お手本なし／あり」のどちらかを選んでください";
+  else { ok = true; msg = `${n}枚作ります（約${(usd * USD_JPY).toFixed(0)}円）`; }
+  $("#run").disabled = !ok || running; if (!running) setStatus(msg);
+}
+
+// ---------- サーバー呼び出し ----------
+async function post(path, payload) {
+  let res;
+  try {
+    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "x-access-code": code() }, body: JSON.stringify(payload) });
+  } catch (e) { throw new Error("サーバーに接続できませんでした。電波の良い所でもう一度試してください。"); }
+  let data = null; try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error((data && data.error) || `エラー ${res.status}`);
+  return data;
+}
+
+// ---------- 履歴と選択 ----------
+let history = store.get("history", []);
+history.forEach(b => b.rows.forEach(r => r.outs.forEach(o => { if (!o.id) o.id = uid(); })));
+let selectedId = store.get("selected", null);
+setTimeout(() => saveHistory(), 0); // 古い履歴に付けたidを保存しておく
+function saveHistory() {
+  // 容量を超えたら古いものから落とす
+  for (let n = Math.min(history.length, 30); n > 0; n--) {
+    try { localStorage.setItem("avtool:history", JSON.stringify(history.slice(0, n))); return; } catch (e) {}
+  }
+}
+function findOut(id) {
+  for (const b of history) for (const r of b.rows) for (const o of r.outs) if (o.id === id) return { b, r, o };
+  return null;
+}
+function select(id) {
+  selectedId = id; store.set("selected", id);
+  renderAll();
+  $("#step2").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---------- STEP 1：生成 ----------
+$("#run").onclick = async () => {
+  const { models, variants, n } = plan();
+  running = true; $("#run").disabled = true;
+  const batch = { at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(),
+    rows: photos.map(p => ({ thumb: p.thumb, name: p.name, outs: [] })) };
+  const jobs = [];
+  photos.forEach((p, pi) => {
+    for (const withStyle of variants) for (const m of models) {
+      const out = { id: uid(), model: m.label, style: withStyle, usd: m.usd, state: "run" };
+      batch.rows[pi].outs.push(out);
+      jobs.push({ p, m, withStyle, out });
+    }
+  });
+  history.unshift(batch); latestBatch = batch; renderAll();
+  let done = 0; setStatus(`作成中… 0 / ${n}`);
+  const work = async job => {
+    const t0 = performance.now();
+    try {
+      const images = [job.p.dataUrl].concat(job.withStyle ? [styleUrl] : []);
+      const d = await post("/api/generate", { model: job.m.id, prompt: buildPrompt(job.withStyle), images });
+      if (!d || !d.url) throw new Error("画像が返ってきませんでした");
+      job.out.url = d.url; job.out.state = "ok";
+    } catch (e) { job.out.state = "err"; job.out.error = e.message; }
+    job.out.sec = Math.round((performance.now() - t0) / 100) / 10;
+    done++; setStatus(`作成中… ${done} / ${n}`); renderAll(); saveHistory();
+  };
+  const queue = jobs.slice(); const workers = [];
+  for (let i = 0; i < Math.min(4, queue.length); i++) workers.push((async () => { while (queue.length) await work(queue.shift()); })());
+  await Promise.all(workers);
+  running = false; refresh();
+  const errs = jobs.filter(j => j.out.state === "err");
+  if (errs.length) setStatus(`完了（${errs.length}件失敗：${errs[0].out.error}）`, true);
+  else setStatus("できました。気に入った子の「この子を3Dにする」を押すとSTEP 2に進みます。");
+};
+
+// ---------- STEP 2：3D化 ----------
+const m3dSaved = store.get("m3d", "tripo");
+document.querySelectorAll('input[name=m3d]').forEach(r => { r.checked = r.value === m3dSaved; r.onchange = () => { store.set("m3d", r.value); refresh3d(); }; });
+const m3dNow = () => (document.querySelector('input[name=m3d]:checked') || {}).value || "tripo";
+
+$("#go3d").onclick = () => { const f = findOut(selectedId); if (f) start3d(f.o, m3dNow()); };
+async function start3d(o, model) {
+  o.err3d = null; o.m3d = model; o.glb = null;
+  o.job = { started: Date.now() }; renderAll();
+  try {
+    const d = await post("/api/to3d", { action: "submit", imageUrl: o.src3d || o.url, model });
+    o.job = { ...o.job, statusUrl: d.statusUrl, responseUrl: d.responseUrl, model };
+    delete o.src3d; saveHistory(); poll3d(o);
+  } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderAll(); }
+}
+async function poll3d(o) {
+  while (o.job && o.job.statusUrl) {
+    await new Promise(r => setTimeout(r, 4000));
+    if (!o.job) return;
+    try {
+      const d = await post("/api/to3d", { action: "check", statusUrl: o.job.statusUrl, responseUrl: o.job.responseUrl, model: o.job.model });
+      if (d.done) { o.glb = d.glb; o.job = null; saveHistory(); renderAll(); return; }
+    } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderAll(); return; }
+    if (Date.now() - o.job.started > 10 * 60 * 1000) { o.job = null; o.err3d = "時間がかかりすぎたので止めました。もう一度押してください"; saveHistory(); renderAll(); return; }
+    refresh3d();
+  }
+}
+$("#pick3d").onclick = () => { if (!code()) { $("#status3d").textContent = "先に合言葉を保存してください"; return; } $("#file3d").click(); };
+$("#file3d").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    const raw = await readAsDataURL(f);
+    const o = { id: uid(), model: "保存した画像", style: false, usd: 0, state: "ok",
+      src3d: await shrink(raw, 1024, "image/jpeg", 0.92), url: await shrink(raw, 400, "image/jpeg", 0.85) };
+    history.unshift({ at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(), rows: [{ thumb: await shrink(raw, 200, "image/jpeg", 0.8), name: f.name, outs: [o] }] });
+    selectedId = o.id; store.set("selected", o.id); saveHistory(); renderAll();
+  } catch (err) { $("#status3d").textContent = "画像を読み込めませんでした"; }
+};
+function viewUrl(b, o) { return `view.html?u=${encodeURIComponent(o.glb)}&t=${encodeURIComponent(b.body || "")}&n=${encodeURIComponent(b.cname || "")}`; }
+
+function refresh3d() {
+  const f = findOut(selectedId);
+  const img = $("#selImg"), title = $("#selTitle"), go = $("#go3d"), st = $("#status3d"), prog = $("#prog");
+  img.innerHTML = ""; prog.hidden = true; st.textContent = ""; st.classList.remove("err");
+  if (!f || f.o.state !== "ok") {
+    img.className = "sel-img empty"; img.textContent = "STEP 1の結果で「この子を3Dにする」を押してください";
+    title.textContent = "3Dにするアバター：まだ選ばれていません";
+    go.disabled = true; go.textContent = "3Dにする"; go.className = "primary p2";
+  } else {
+    const { b, o } = f;
+    img.className = "sel-img"; img.append(el("img", { src: o.url, alt: "選んだアバター" }));
+    title.textContent = `3Dにするアバター：${b.cname || "名前なし"}（${o.model}${o.style ? "・お手本あり" : ""}）`;
+    const m = m3dNow();
+    if (o.job) {
+      go.disabled = true; go.textContent = "3D化中…";
+      const sec = Math.round((Date.now() - o.job.started) / 1000);
+      prog.hidden = false; $("#progBar").style.width = Math.min(95, sec / 150 * 100) + "%";
+      $("#progText").textContent = `${sec}秒経過（1〜3分ほど）。この画面を開いたままにしてください`;
+    } else {
+      const jp = Math.round(M3D[m].usd * USD_JPY);
+      go.disabled = !code(); go.textContent = o.glb ? `作り直す（${M3D[m].label}・約${jp}円）` : `3Dにする（${M3D[m].label}・約${jp}円）`;
+      go.className = o.glb ? "" : "primary p2";
+      if (o.glb) st.textContent = `できました（${M3D[o.m3d]?.label || ""}）。STEP 3へ進めます`;
+      if (o.err3d) { st.textContent = o.err3d; st.classList.add("err"); }
+    }
+  }
+  // STEP 3
+  const ready = f && f.o.glb;
+  $("#tankReady").hidden = !ready; $("#tankWait").hidden = !!ready;
+  if (ready) $("#tankLink").href = viewUrl(f.b, f.o);
+}
+setInterval(() => { const f = findOut(selectedId); if (f && f.o.job) refresh3d(); }, 1000);
+
+// ---------- 描画 ----------
+function outCard(o, b, r) {
+  let media;
+  if (o.state === "run") media = el("div", { class: "img" }, el("div", { class: "spin" }));
+  else if (o.state === "err") media = el("div", { class: "img" }, el("div", { class: "err" }, o.error || "失敗"));
+  else media = el("div", { class: "img" }, el("img", { src: o.url, loading: "lazy", alt: "アバター", onclick: () => { $("#lbImg").src = o.url; $("#lb").classList.add("on"); } }));
+  const fav = el("button", { class: "icon" + (o.fav ? " on" : ""), title: "お気に入り", "aria-label": "お気に入り", onclick: () => { o.fav = !o.fav; saveHistory(); renderAll(); } }, o.fav ? "♥" : "♡");
+  const dl = o.state === "ok" && !o.url.startsWith("data:") ? el("button", { class: "icon", title: "保存", "aria-label": "保存", onclick: () => download(o.url, `${(b.cname || r.name).replace(/\.[^.]+$/, "")}_${o.model}.png`) }, "⤓") : null;
+  const is = o.id === selectedId;
+  const pick = o.state === "ok" ? el("button", { class: "pick" + (is ? " on" : ""), onclick: () => select(o.id) }, is ? "✓ 3Dにする子に選択中" : "この子を3Dにする") : null;
+  const badge = o.glb ? el("span", { class: "badge" }, "3Dあり") : o.job ? el("span", { class: "badge", style: "background:var(--s2)" }, "3D化中") : null;
+  return el("div", { class: "out" + (is ? " sel" : "") }, media,
+    el("div", { class: "meta" }, el("span", {}, el("b", {}, o.model), badge, el("br"),
+      el("span", { class: "muted" }, `${o.style ? "お手本あり" : "お手本なし"}${o.sec != null ? "・" + o.sec + "秒" : ""}${o.usd ? "・" + yen(o.usd) + "円" : ""}`)),
+      el("span", {}, fav, dl)),
+    pick,
+    o.glb ? el("a", { class: "button", href: viewUrl(b, o), style: "width:100%;margin-top:6px;font-size:13px;padding:7px" }, "水槽で見る") : null);
+}
+function batchBlock(b) {
+  const wrap = el("div", {}, el("div", { class: "batch-head" }, el("b", {}, b.at + (b.cname ? "　" + b.cname : "")), el("span", { class: "muted" }, `写真${b.rows.length}枚`)));
+  for (const r of b.rows) {
+    const outs = el("div", { class: "outs" });
+    for (const o of r.outs) outs.append(outCard(o, b, r));
+    wrap.append(el("div", { class: "res-row" }, el("div", { class: "orig" }, el("img", { src: r.thumb, alt: "元の写真" })), outs));
+  }
+  return wrap;
+}
+let latestBatch = null; // このページで作った最新の結果はSTEP 1の下に出す
+function renderAll() {
+  if (latestBatch && !history.includes(latestBatch)) latestBatch = null;
+  const latest = $("#latest"); latest.innerHTML = "";
+  if (latestBatch) { latest.hidden = false; latest.append(batchBlock(latestBatch)); } else latest.hidden = true;
+  const box = $("#history"); box.innerHTML = "";
+  const rest = history.filter(b => b !== latestBatch);
+  for (const b of rest) box.append(el("div", { class: "card" }, batchBlock(b)));
+  $("#histHead").hidden = !rest.length;
+  refresh3d();
+}
+async function download(url, name) {
+  try { const blob = await (await fetch(url)).blob(); const a = el("a", { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); a.remove(); }
+  catch (e) { window.open(url, "_blank"); }
+}
+$("#clearHist").onclick = () => {
+  const keep = history.filter(b => b === latestBatch || b.rows.some(r => r.outs.some(o => o.id === selectedId)));
+  history = keep; saveHistory(); renderAll();
+};
+$("#lb").onclick = () => $("#lb").classList.remove("on");
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("#lb").classList.remove("on"); });
+
+
+// 前回途中で閉じたものの片付けと、3D化の続き
+history.forEach(b => b.rows.forEach(r => r.outs.forEach(o => {
+  if (o.state === "run") { o.state = "err"; o.error = "途中で閉じられました"; }
+  if (o.job && o.job.statusUrl) setTimeout(() => poll3d(o), 500); else if (o.job) o.job = null;
+})));
+renderAll(); refresh();
+</script>
+</body>
+</html>

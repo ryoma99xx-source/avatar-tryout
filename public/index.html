@@ -2,96 +2,138 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>アバター試作</title>
 <style>
+/* 上から順に進む3ステップ。各ステップは見出し帯＋カードで区切る */
 :root{
-  --bg:#f5f4f0; --panel:#fff; --ink:#1c1c1a; --sub:#6d6c67; --line:#e2e0da;
-  --accent:#2563eb; --accent-ink:#fff; --soft:#eef3ff; --bad:#c2412d; --good:#1f8a4c;
+  --bg:#f3f5f4; --panel:#fff; --ink:#18201d; --sub:#66706c; --line:#dfe4e1;
+  --accent:#1f6feb; --accent-ink:#fff; --soft:#eaf1fe; --bad:#c2412d; --good:#1d8a52; --sea:#0e5f7d;
+  --s1:#1f6feb; --s2:#7a4fd6; --s3:#0e8a74;
 }
 @media (prefers-color-scheme: dark){
-  :root{ --bg:#141413; --panel:#1e1e1c; --ink:#ecebe6; --sub:#9c9b95; --line:#34332f;
-    --accent:#6b9cff; --accent-ink:#0d1420; --soft:#1d2638; --bad:#ff7a63; --good:#4cc283; }
+  :root{ --bg:#121614; --panel:#1b201e; --ink:#e9eeec; --sub:#98a29e; --line:#2f3633;
+    --accent:#6b9cff; --accent-ink:#0d1420; --soft:#1c2638; --bad:#ff7a63; --good:#4cc283; --sea:#5cc0e0;
+    --s1:#6b9cff; --s2:#a988f0; --s3:#43c7ac; color-scheme:dark; }
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
-.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px}
+.wrap{max-width:980px;margin:0 auto;padding-block:24px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 h1{font-size:22px;margin:0 0 4px}
-.lead{color:var(--sub);margin:0 0 22px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
-.step{display:flex;gap:10px;align-items:baseline;margin:0 0 10px;font-weight:600}
-.step .n{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);align-items:center;justify-content:center;font-size:13px;flex:none}
+.lead{color:var(--sub);margin:0 0 14px}
+.flow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 18px;font-size:13px}
+.flow a{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:var(--panel);border:1px solid var(--line);color:var(--ink);text-decoration:none}
+.flow a b{display:inline-flex;width:20px;height:20px;border-radius:50%;align-items:center;justify-content:center;color:#fff;font-size:12px}
+.flow .arrow{color:var(--sub)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+.card h3{font-size:15px;margin:0 0 10px}
+.stephead{display:flex;align-items:center;gap:10px;margin:30px 0 12px;scroll-margin-top:12px}
+.stephead .tag{font-size:12px;font-weight:700;letter-spacing:.06em;color:#fff;padding:3px 10px;border-radius:99px}
+.stephead h2{font-size:19px;margin:0}
+.stephead .cost{margin-left:auto;color:var(--sub);font-size:13px}
+.s1 .tag,.flow .f1 b{background:var(--s1)} .s2 .tag,.flow .f2 b{background:var(--s2)} .s3 .tag,.flow .f3 b{background:var(--s3)}
 input[type=password],input[type=text],textarea,select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%}
 textarea{min-height:64px;resize:vertical}
-.row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+label{display:block}
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
 .muted{color:var(--sub);font-size:13px}
 a{color:var(--accent)}
-button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 14px}
-button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;padding:11px 22px;font-size:16px}
+button,a.button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 14px;text-decoration:none;display:inline-block;text-align:center}
+button.primary,a.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;padding:12px 22px;font-size:16px}
+button.p2{background:var(--s2);border-color:var(--s2);color:#fff}
+a.p3{background:var(--s3);border-color:var(--s3);color:#fff}
 button:disabled{opacity:.45;cursor:not-allowed}
-.drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--sub);cursor:pointer;transition:.15s}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--sub);cursor:pointer}
 .drop.over{border-color:var(--accent);background:var(--soft);color:var(--ink)}
 .thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 .thumbs figure{margin:0;position:relative}
-.thumbs img{width:96px;height:96px;object-fit:cover;border-radius:9px;border:1px solid var(--line);display:block}
+.thumbs img{width:88px;height:88px;object-fit:cover;border-radius:9px;border:1px solid var(--line);display:block}
 .thumbs button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;padding:0;border-radius:50%;font-size:13px;line-height:1}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:5px 12px;cursor:pointer;user-select:none;background:var(--bg)}
 .chip input{margin:0}
 .chip:has(input:checked){border-color:var(--accent);background:var(--soft)}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media (max-width:720px){.grid2{grid-template-columns:1fr}}
-.go{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.status{font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.go{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.status{font-size:14px;min-width:0}
 .status.err{color:var(--bad)}
-.batch{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
-.batch-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
-.res-row{display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
-.res-row:first-of-type{border-top:none}
-.res-row .orig img{width:140px;height:140px;object-fit:contain;background:#000;border-radius:10px}
-.outs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.batch-head{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;gap:10px}
+.res-row{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.res-row:first-of-type{border-top:none;padding-top:0}
+.res-row .orig img{width:120px;height:120px;object-fit:contain;background:#000;border-radius:10px;display:block}
+.outs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;min-width:0}
 .out{border:1px solid var(--line);border-radius:12px;padding:8px;background:var(--bg)}
-.out .img{aspect-ratio:1;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.out.sel{border-color:var(--s2);box-shadow:0 0 0 2px var(--s2) inset}
+.out .img{aspect-ratio:1;max-width:100%;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .out .img img{width:100%;height:100%;object-fit:contain;cursor:zoom-in}
-.out .meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-top:6px;gap:6px}
+.out .meta{display:flex;justify-content:space-between;align-items:flex-start;font-size:12px;margin-top:6px;gap:6px}
 .out .meta b{font-weight:600}
 .out .err{color:var(--bad);font-size:12px;padding:10px;text-align:center;word-break:break-all}
-.d3{margin-top:8px;display:flex;flex-direction:column;gap:4px}
-.d3 button,.d3 a{font-size:13px;padding:7px 10px;border-radius:9px;text-align:center;text-decoration:none;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
-.d3 a{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
-.d3 .note{font-size:11px;color:var(--sub);text-align:center}
-.d3 .note.err{color:var(--bad)}
-.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 0.9s linear infinite}
+.out .pick{width:100%;margin-top:8px;font-size:13px;padding:8px}
+.out .pick.on{background:var(--s2);border-color:var(--s2);color:#fff}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:var(--s3);color:#fff;margin-left:4px}
+.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .9s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
-.fav{border:none;background:none;font-size:18px;padding:0 2px;color:var(--sub)}
-.fav.on{color:#e0457b}
+@media (prefers-reduced-motion: reduce){ .spin{animation-duration:3s} }
+.icon{border:none;background:none;font-size:18px;padding:0 2px;color:var(--sub)}
+.icon.on{color:#e0457b}
 .lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;padding:20px}
 .lb.on{display:flex}
 .lb img{max-width:94vw;max-height:90vh;background:#fff;border-radius:10px}
 details summary{cursor:pointer;color:var(--sub);font-size:14px}
-.style-prev{width:64px;height:64px;border-radius:8px;object-fit:cover;vertical-align:middle;border:1px solid var(--line)}
-@media (max-width:640px){ .outs{grid-template-columns:1fr 1fr;gap:8px} .wrap{padding:20px 14px 60px} .res-row{grid-template-columns:1fr} .res-row .orig img{width:100px;height:100px} }
+.style-prev{width:56px;height:56px;border-radius:8px;object-fit:cover;vertical-align:middle;border:1px solid var(--line)}
+.sel-box{display:grid;grid-template-columns:180px 1fr;gap:18px;align-items:start}
+.sel-img{width:180px;aspect-ratio:1;max-width:100%;border-radius:12px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--sub);font-size:13px;text-align:center;padding:10px}
+.sel-img img{width:100%;height:100%;object-fit:contain}
+.sel-img.empty{background:var(--bg);border-style:dashed}
+.progress{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px 0 4px}
+.progress div{height:100%;background:var(--s2);width:0;transition:width .8s}
+.tips{margin:10px 0 0;padding-left:20px;color:var(--sub);font-size:14px}
+.key-saved{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (max-width:640px){
+  .grid2{grid-template-columns:1fr}
+  .res-row{grid-template-columns:1fr}
+  .res-row .orig img{width:90px;height:90px}
+  .outs{grid-template-columns:1fr 1fr;gap:8px}
+  .sel-box{grid-template-columns:1fr}
+  .sel-img{width:100%;max-width:260px}
+  .stephead .cost{width:100%;margin-left:0}
+  .stephead{flex-wrap:wrap}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>アバター試作ツール</h1>
-  <p class="lead">捕まえた生き物の写真を入れると、Muse Image などで可愛い3D風アバターにします。写りの悪い写真でもどこまでいけるかを試すためのツールです。結果の画像は長押しで写真に保存できます。</p>
+  <h1>アバター試作</h1>
+  <p class="lead">捕まえた生き物の写真から、可愛いアバターを作って3Dにし、水槽で飼います。</p>
+  <nav class="flow" aria-label="手順">
+    <a class="f1" href="#step1"><b>1</b>アバターを作る</a><span class="arrow">→</span>
+    <a class="f2" href="#step2"><b>2</b>3Dにする</a><span class="arrow">→</span>
+    <a class="f3" href="#step3"><b>3</b>水槽で飼う</a>
+  </nav>
 
-  <div class="card">
-    <p class="step"><span class="n">1</span>合言葉</p>
-    <div class="row">
-      <input type="password" id="key" placeholder="Vercelで決めた合言葉（この端末にだけ保存されます）" style="flex:1;min-width:200px" autocomplete="off">
-      <button id="keyToggle">表示</button>
+  <div class="card" id="keyCard">
+    <h3>合言葉（最初に一度だけ）</h3>
+    <div id="keyEdit">
+      <div class="row">
+        <input type="password" id="key" placeholder="Vercelで決めた合言葉" style="flex:1;min-width:200px" autocomplete="off">
+        <button id="keySave">保存</button>
+      </div>
+      <p class="muted" style="margin:8px 0 0">他の人に使われてクレジットが減らないようにするための鍵です。この端末にだけ保存されます。</p>
     </div>
-    <p class="muted" style="margin:8px 0 0">他の人に使われてクレジットが減らないようにするための鍵です。初回だけ入れれば、次回からは不要です。</p>
+    <div class="key-saved" id="keyShow" hidden><span>保存済みです</span><button id="keyChange">変更する</button></div>
   </div>
 
+  <!-- ===================== STEP 1 ===================== -->
+  <div class="stephead s1" id="step1"><span class="tag">STEP 1</span><h2>アバターを作る</h2><span class="cost">Museなら1枚 約1.5円</span></div>
+
   <div class="card">
-    <p class="step"><span class="n">2</span>生き物の写真（何枚でも）</p>
+    <h3>写真</h3>
     <div class="row" style="margin-bottom:10px">
-      <button class="primary" id="shoot" style="font-size:15px;padding:10px 18px">カメラで撮る</button>
-      <span class="muted">または下に写真を入れる</span>
+      <button id="shoot">カメラで撮る</button>
+      <span class="muted">または下に写真を入れる（何枚でも）</span>
     </div>
     <input type="file" id="cam" accept="image/*" capture="environment" hidden>
     <div class="drop" id="drop">ここに写真をドラッグ、またはタップして選ぶ<br><span class="muted">ブレ・暗い・小さい写真もそのままでOK</span></div>
@@ -100,19 +142,10 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
   </div>
 
   <div class="card">
-    <p class="step" style="margin-bottom:6px">作ってあるアバターを3Dにする</p>
-    <p class="muted" style="margin:0 0 10px">写真アプリに保存したアバター画像を選ぶと、作り直さずにそのまま3Dにします（約37〜45円）。種類は下の③で選んだものが動きに使われます。</p>
-    <div class="row"><button id="pick3d">アバター画像を選んで3Dにする</button><span class="status" id="status3d"></span></div>
-    <input type="file" id="file3d" accept="image/*" hidden>
-  </div>
-
-  <div class="card">
-    <p class="step"><span class="n">3</span>生き物のこと（どちらも任意）</p>
+    <h3>生き物のこと（どれも任意）</h3>
     <div class="grid2">
-      <label>名前（わかれば。例：タチウオ、サワガニ）<br>
-        <input type="text" id="name" placeholder="例：タチウオ" autocomplete="off">
-      </label>
-      <label>種類<br>
+      <label>名前（わかれば）<br><input type="text" id="name" placeholder="例：タチウオ、サワガニ" autocomplete="off"></label>
+      <label>種類（動き方とエサに使います）<br>
         <select id="body">
           <option value="">おまかせ</option>
           <option value="fish">魚</option>
@@ -125,27 +158,23 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
           <option value="mollusk_other">その他（貝、カタツムリなど）</option>
         </select>
       </label>
-      <label>この子の特徴メモ（日本語でOK）<br>
-        <textarea id="notes" placeholder="例：目の上に青い帯、顔が黄色、お腹がオレンジ、しっぽの先が欠けている"></textarea>
-      </label>
     </div>
-    <p class="muted" style="margin:6px 0 0">写真がぼやけていても、ここに書いた模様や色は残るように指示します。複数枚まとめて入れたときは全部に同じ内容が使われます。</p>
+    <label style="margin-top:12px">この子の特徴メモ（日本語でOK）<br>
+      <textarea id="notes" placeholder="例：目の上に青い帯、顔が黄色、お腹がオレンジ、しっぽの先が欠けている"></textarea>
+    </label>
+    <p class="muted" style="margin:6px 0 0">写真がぼやけていても、ここに書いた模様や色は残るように指示します。</p>
   </div>
 
   <div class="card">
-    <p class="step"><span class="n">4</span>試し方</p>
-    <p class="muted" style="margin:0 0 8px">モデル</p>
+    <h3>作り方</h3>
+    <p class="muted" style="margin:0 0 8px">使うAI</p>
     <div class="chips" id="models"></div>
-    <p class="muted" style="margin:14px 0 8px">お手本画像 <img class="style-prev" id="stylePrev" alt="お手本"> を使うか（絵柄を揃える効果を見る）</p>
+    <p class="muted" style="margin:14px 0 8px">絵柄のお手本 <img class="style-prev" id="stylePrev" alt="お手本画像"></p>
     <div class="chips">
       <label class="chip"><input type="checkbox" id="vNo" checked>お手本なし</label>
       <label class="chip"><input type="checkbox" id="vYes" checked>お手本あり</label>
-      <label class="chip"><input type="file" id="styleFile" accept="image/*" hidden><span id="styleBtn" style="cursor:pointer">お手本を差し替える…</span></label>
-    </div>
-    <p class="muted" style="margin:14px 0 8px">3Dにするときのモデル（気に入ったアバターの「3Dにする」を押したときに使います）</p>
-    <div class="chips">
-      <label class="chip"><input type="radio" name="m3d" value="tripo">Tripo 2.5（約45円・正面の向きを合わせやすい）</label>
-      <label class="chip"><input type="radio" name="m3d" value="trellis">TRELLIS.2（約37円）</label>
+      <button id="styleBtn" class="chip" type="button">お手本を差し替える…</button>
+      <input type="file" id="styleFile" accept="image/*" hidden>
     </div>
     <details style="margin-top:14px">
       <summary>指示文を見る・直す（上級者向け）</summary>
@@ -155,13 +184,55 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
     </details>
   </div>
 
-  <div class="card go">
-    <button class="primary" id="run" disabled>アバターを作る</button>
-    <span class="status" id="status">写真を入れてください</span>
+  <div class="card">
+    <div class="go">
+      <button class="primary" id="run" disabled>アバターを作る</button>
+      <span class="status" id="status">写真を入れてください</span>
+    </div>
+    <div id="latest" style="margin-top:14px" hidden></div>
   </div>
 
-  <div id="results"></div>
-  <div class="row" id="histTools" style="display:none;justify-content:flex-end"><button id="clearHist">履歴を消す</button></div>
+  <!-- ===================== STEP 2 ===================== -->
+  <div class="stephead s2" id="step2"><span class="tag">STEP 2</span><h2>3Dにする</h2><span class="cost">1体 約37〜45円・1〜3分</span></div>
+  <div class="card">
+    <div class="sel-box">
+      <div class="sel-img empty" id="selImg">STEP 1の結果で「この子を3Dにする」を押してください</div>
+      <div style="min-width:0">
+        <h3 id="selTitle">3Dにするアバター：まだ選ばれていません</h3>
+        <p class="muted" style="margin:0 0 8px">3Dを作るAI</p>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="m3d" value="tripo">Tripo 2.5（約45円・向きが揃いやすい）</label>
+          <label class="chip"><input type="radio" name="m3d" value="trellis">TRELLIS.2（約37円）</label>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="primary p2" id="go3d" disabled>3Dにする</button>
+          <span class="status" id="status3d"></span>
+        </div>
+        <div id="prog" hidden><div class="progress"><div id="progBar"></div></div><span class="muted" id="progText"></span></div>
+        <p class="muted" style="margin:16px 0 6px">写真アプリに保存してあるアバター画像から3Dにすることもできます</p>
+        <button id="pick3d">保存したアバター画像を選ぶ</button>
+        <input type="file" id="file3d" accept="image/*" hidden>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== STEP 3 ===================== -->
+  <div class="stephead s3" id="step3"><span class="tag">STEP 3</span><h2>水槽で飼う</h2></div>
+  <div class="card">
+    <div id="tankReady" hidden>
+      <a class="button primary p3" id="tankLink" href="#">3D水槽で見る</a>
+      <ul class="tips">
+        <li>「エサ」ボタンで、種類に合ったエサをあげられます</li>
+        <li>水槽をダブルタップすると、その場所まで寄ってきます</li>
+        <li>傾いていたら「姿勢を直す」、頭が逆なら「頭としっぽ」</li>
+      </ul>
+    </div>
+    <p class="muted" id="tankWait" style="margin:0">STEP 2で3Dにすると、ここから水槽に入れられます。</p>
+  </div>
+
+  <!-- ===================== 履歴 ===================== -->
+  <div class="stephead" id="histHead" hidden><h2 style="font-size:16px">これまでに作ったもの</h2><span class="cost"><button id="clearHist">履歴を消す</button></span></div>
+  <div id="history"></div>
 </div>
 <div class="lb" id="lb"><img id="lbImg" alt=""></div>
 
@@ -169,15 +240,12 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px}
 const STYLE_DEFAULT = "data:image/jpeg;base64,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";
 const USD_JPY = 150;
 const MODELS = [
-  { id: "muse",     label: "Muse Image",       endpoint: "meta/muse-image/edit",                   usd: 0.01,  on: true,
-    args: (p, u) => ({ prompt: p, image_urls: u, aspect_ratio: "1:1", num_images: 1, output_format: "png" }) },
-  { id: "klein",    label: "FLUX.2 klein",     endpoint: "fal-ai/flux-2/klein/9b/edit",            usd: 0.025, on: false,
-    args: (p, u) => ({ prompt: p, image_urls: u, image_size: { width: 1024, height: 1024 }, num_images: 1, output_format: "png" }) },
-  { id: "seedream", label: "Seedream 5.0 Lite", endpoint: "fal-ai/bytedance/seedream/v5/lite/edit", usd: 0.035, on: false,
-    args: (p, u) => ({ prompt: p, image_urls: u, image_size: { width: 1024, height: 1024 }, num_images: 1, output_format: "png" }) },
-  { id: "nb2",      label: "Nano Banana 2",    endpoint: "fal-ai/nano-banana-2/edit",              usd: 0.06,  on: false,
-    args: (p, u) => ({ prompt: p, image_urls: u, aspect_ratio: "1:1", resolution: "0.5K", num_images: 1, output_format: "png" }) },
+  { id: "muse",     label: "Muse Image",        usd: 0.01,  on: true },
+  { id: "klein",    label: "FLUX.2 klein",      usd: 0.025, on: false },
+  { id: "seedream", label: "Seedream 5.0 Lite", usd: 0.035, on: false },
+  { id: "nb2",      label: "Nano Banana 2",     usd: 0.06,  on: false },
 ];
+const M3D = { tripo: { label: "Tripo 2.5", usd: 0.30 }, trellis: { label: "TRELLIS.2", usd: 0.25 } };
 
 const BODY_HINTS = {
   fish: "Keep the real body shape of this fish: a long, slender fish stays long and slender, a flat fish stays flat, a round fish stays round. Fins are soft and slightly translucent, and only the fins this fish really has. Side view (profile), body horizontal, head pointing to the right.",
@@ -222,7 +290,7 @@ IMAGE 2 IS A STYLE REFERENCE ONLY:
 Match the rendering quality, cuteness, proportions, eye style and lighting of image 2.
 Do NOT copy the species, shape, colors or markings of image 2. Those must come from image 1.`;
 
-// ---------- 保存（このブラウザだけ） ----------
+// ---------- 保存（この端末のブラウザだけ） ----------
 const store = {
   get(k, d) { try { const v = localStorage.getItem("avtool:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("avtool:" + k, JSON.stringify(v)); } catch (e) {} },
@@ -232,14 +300,18 @@ const el = (t, a = {}, ...kids) => { const e = document.createElement(t);
   for (const [k, v] of Object.entries(a)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e[k] = v; else e.setAttribute(k, v); }
   for (const k of kids) if (k != null) e.append(k); return e; };
 const yen = usd => (usd * USD_JPY).toFixed(1);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const code = () => store.get("key", "");
 
-// ---------- 1. キー ----------
-$("#key").value = store.get("key", "");
-$("#key").oninput = () => { store.set("key", $("#key").value.trim()); refresh(); };
-$("#keyToggle").onclick = () => { const k = $("#key"); k.type = k.type === "password" ? "text" : "password"; $("#keyToggle").textContent = k.type === "password" ? "表示" : "隠す"; };
+// ---------- 合言葉 ----------
+function showKey() { const has = !!code(); $("#keyEdit").hidden = has; $("#keyShow").hidden = !has; }
+$("#keySave").onclick = () => { const v = $("#key").value.trim(); if (!v) return; store.set("key", v); showKey(); refresh(); refresh3d(); };
+$("#key").onkeydown = e => { if (e.key === "Enter") $("#keySave").click(); };
+$("#keyChange").onclick = () => { $("#key").value = code(); $("#keyEdit").hidden = false; $("#keyShow").hidden = true; $("#key").focus(); };
+showKey();
 
-// ---------- 2. 写真 ----------
-let photos = []; // {name, dataUrl, thumb}
+// ---------- 写真 ----------
+let photos = [];
 function readAsDataURL(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
 async function shrink(src, max, type = "image/jpeg", q = 0.9) {
@@ -255,19 +327,15 @@ async function addFiles(files) {
     if (!f.type.startsWith("image/") && !/\.(heic|heif)$/i.test(f.name)) continue;
     try {
       const raw = await readAsDataURL(f);
-      const dataUrl = await shrink(raw, 1024);
-      const thumb = await shrink(raw, 200, "image/jpeg", 0.8);
-      photos.push({ name: f.name, dataUrl, thumb });
-    } catch (e) {
-      setStatus(`${f.name} を読み込めませんでした（HEICの場合はJPEGで書き出すか、Safariで開いてください）`, true);
-    }
+      photos.push({ name: f.name, dataUrl: await shrink(raw, 1024), thumb: await shrink(raw, 200, "image/jpeg", 0.8) });
+    } catch (e) { setStatus(`${f.name} を読み込めませんでした（JPEGで書き出してから入れてください）`, true); }
   }
   renderThumbs(); refresh();
 }
 function renderThumbs() {
   const box = $("#thumbs"); box.innerHTML = "";
-  photos.forEach((p, i) => box.append(el("figure", {}, el("img", { src: p.thumb, title: p.name }),
-    el("button", { title: "外す", onclick: () => { photos.splice(i, 1); renderThumbs(); refresh(); } }, "×"))));
+  photos.forEach((p, i) => box.append(el("figure", {}, el("img", { src: p.thumb, alt: p.name }),
+    el("button", { title: "外す", "aria-label": "外す", onclick: () => { photos.splice(i, 1); renderThumbs(); refresh(); } }, "×"))));
 }
 $("#shoot").onclick = () => $("#cam").click();
 $("#cam").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
@@ -277,16 +345,9 @@ $("#file").onchange = e => { addFiles([...e.target.files]); e.target.value = "";
 drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
 drop.ondragleave = () => drop.classList.remove("over");
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); addFiles([...e.dataTransfer.files]); };
-window.addEventListener("paste", e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) addFiles(fs); });
 
-// ---------- 3/4. 設定 ----------
-$("#body").value = store.get("body", "");
-$("#name").value = store.get("name", "");
-$("#name").oninput = () => store.set("name", $("#name").value);
-$("#notes").value = store.get("notes", "");
-$("#body").onchange = () => store.set("body", $("#body").value);
-$("#notes").oninput = () => store.set("notes", $("#notes").value);
-
+// ---------- 生き物のこと・作り方 ----------
+for (const id of ["name", "body", "notes"]) { $("#" + id).value = store.get(id, ""); $("#" + id).oninput = () => store.set(id, $("#" + id).value); }
 const modelOn = store.get("models", Object.fromEntries(MODELS.map(m => [m.id, m.on])));
 for (const m of MODELS) {
   const cb = el("input", { type: "checkbox" }); cb.checked = !!modelOn[m.id];
@@ -294,21 +355,17 @@ for (const m of MODELS) {
   $("#models").append(el("label", { class: "chip" }, cb, `${m.label}（約${yen(m.usd)}円）`));
 }
 ["vNo", "vYes"].forEach(id => { $("#" + id).checked = store.get(id, true); $("#" + id).onchange = () => { store.set(id, $("#" + id).checked); refresh(); }; });
-
 let styleUrl = store.get("style", STYLE_DEFAULT);
 $("#stylePrev").src = styleUrl;
 $("#styleBtn").onclick = () => $("#styleFile").click();
 $("#styleFile").onchange = async e => { const f = e.target.files[0]; if (!f) return;
   styleUrl = await shrink(await readAsDataURL(f), 512); $("#stylePrev").src = styleUrl; store.set("style", styleUrl); };
-
-$("#tpl").value = store.get("tpl", TEMPLATE);
-$("#tpl").oninput = () => store.set("tpl", $("#tpl").value);
-$("#tplReset").onclick = () => { $("#tpl").value = TEMPLATE; store.set("tpl", TEMPLATE); };
+$("#tpl").value = store.get("tpl2", TEMPLATE);
+$("#tpl").oninput = () => store.set("tpl2", $("#tpl").value);
+$("#tplReset").onclick = () => { $("#tpl").value = TEMPLATE; store.set("tpl2", TEMPLATE); };
 
 function buildPrompt(withStyle) {
-  const body = $("#body").value;
-  const name = $("#name").value.trim();
-  const notes = $("#notes").value.trim();
+  const body = $("#body").value, name = $("#name").value.trim(), notes = $("#notes").value.trim();
   const traits = notes
     ? notes.split(/\n|、|。|,/).map(s => s.trim()).filter(Boolean).map(s => "- " + s).join("\n") + "\n(The notes above may be written in Japanese. Follow them carefully.)"
     : "- Its body shape, colors and markings exactly as seen in image 1";
@@ -319,7 +376,6 @@ function buildPrompt(withStyle) {
   if (withStyle) p += STYLE_ADDON;
   return p;
 }
-
 function plan() {
   const models = MODELS.filter(m => modelOn[m.id]);
   const variants = [];
@@ -330,181 +386,215 @@ function plan() {
   return { models, variants, n, usd };
 }
 function setStatus(t, err = false) { const s = $("#status"); s.textContent = t; s.classList.toggle("err", err); }
+let running = false;
 function refresh() {
   const { models, variants, n, usd } = plan();
-  const key = $("#key").value.trim();
   let msg = "", ok = false;
-  if (!key) msg = "合言葉を入れてください";
+  if (!code()) msg = "上で合言葉を保存してください";
   else if (!photos.length) msg = "写真を入れてください";
-  else if (!models.length) msg = "モデルを1つ以上選んでください";
+  else if (!models.length) msg = "使うAIを1つ以上選んでください";
   else if (!variants.length) msg = "「お手本なし／あり」のどちらかを選んでください";
   else { ok = true; msg = `${n}枚作ります（約${(usd * USD_JPY).toFixed(0)}円）`; }
   $("#run").disabled = !ok || running; if (!running) setStatus(msg);
 }
 
-// ---------- 生成 ----------
-async function callFal(model, args) {
-  const code = $("#key").value.trim();
+// ---------- サーバー呼び出し ----------
+async function post(path, payload) {
   let res;
   try {
-    res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-access-code": code },
-      body: JSON.stringify({ model: model.id, prompt: args.prompt, images: args.image_urls }),
-    });
-  } catch (e) {
-    throw new Error("サーバーに接続できませんでした。電波の良い所でもう一度試してください。");
-  }
-  let data = null; try { data = await res.json(); } catch (e) {}
-  if (!res.ok) throw new Error((data && data.error) || `エラー ${res.status}`);
-  if (!data || !data.url) throw new Error("画像が返ってきませんでした");
-  return data.url;
-}
-
-let running = false;
-let history = store.get("history", []);
-$("#run").onclick = async () => {
-  const { models, variants, n } = plan();
-  running = true; $("#run").disabled = true;
-  const batch = { at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(), rows: photos.map(p => ({ thumb: p.thumb, name: p.name, outs: [] })) };
-  const jobs = [];
-  photos.forEach((p, pi) => {
-    for (const withStyle of variants) for (const m of models) {
-      const out = { model: m.label, style: withStyle, usd: m.usd, state: "run" };
-      batch.rows[pi].outs.push(out);
-      jobs.push({ p, m, withStyle, out });
-    }
-  });
-  history.unshift(batch); renderHistory();
-  let done = 0; setStatus(`作成中… 0 / ${n}`);
-  const work = async job => {
-    const t0 = performance.now();
-    try {
-      const urls = [job.p.dataUrl].concat(job.withStyle ? [styleUrl] : []);
-      job.out.url = await callFal(job.m, job.m.args(buildPrompt(job.withStyle), urls));
-      job.out.state = "ok";
-    } catch (e) { job.out.state = "err"; job.out.error = e.message; }
-    job.out.sec = Math.round((performance.now() - t0) / 100) / 10;
-    done++; setStatus(`作成中… ${done} / ${n}`); renderHistory(); saveHistory();
-  };
-  const queue = jobs.slice(); const workers = [];
-  for (let i = 0; i < Math.min(4, queue.length); i++) workers.push((async () => { while (queue.length) await work(queue.shift()); })());
-  await Promise.all(workers);
-  running = false;
-  const errs = jobs.filter(j => j.out.state === "err");
-  if (errs.length) setStatus(`完了（${errs.length}件失敗：${errs[0].out.error}）`, true);
-  else setStatus("完了しました。気に入ったものに♡を付けておくと見返しやすくなります。");
-  $("#run").disabled = false;
-};
-// ---------- 3D化 ----------
-const M3D = { tripo: { label: "Tripo", usd: 0.30 }, trellis: { label: "TRELLIS.2", usd: 0.25 } };
-const m3dSaved = store.get("m3d", "tripo");
-document.querySelectorAll('input[name=m3d]').forEach(r => { r.checked = r.value === m3dSaved; r.onchange = () => store.set("m3d", r.value); });
-const m3dNow = () => (document.querySelector('input[name=m3d]:checked') || {}).value || "tripo";
-
-function render3d(o, b) {
-  const box = el("div", { class: "d3" });
-  if (o.glb) {
-    box.append(el("a", { href: `view.html?u=${encodeURIComponent(o.glb)}&t=${encodeURIComponent(b.body || "")}&n=${encodeURIComponent(b.cname || "")}` }, "3Dで見る（泳ぐ）"));
-    box.append(el("div", { class: "note" }, `${M3D[o.m3d]?.label || ""}・約${yen(M3D[o.m3d]?.usd || 0)}円`));
-  } else if (o.job) {
-    box.append(el("button", { disabled: "" }, "3D化中…"));
-    box.append(el("div", { class: "note" }, "1〜3分ほどかかります。この画面を開いたままにしてください"));
-  } else {
-    const m = m3dNow();
-    box.append(el("button", { onclick: () => start3d(o, m) }, `3Dにする（約${yen(M3D[m].usd)}円）`));
-    if (o.err3d) box.append(el("div", { class: "note err" }, o.err3d));
-  }
-  return box;
-}
-async function api3d(payload) {
-  const res = await fetch("/api/to3d", { method: "POST", headers: { "Content-Type": "application/json", "x-access-code": $("#key").value.trim() }, body: JSON.stringify(payload) });
+    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "x-access-code": code() }, body: JSON.stringify(payload) });
+  } catch (e) { throw new Error("サーバーに接続できませんでした。電波の良い所でもう一度試してください。"); }
   let data = null; try { data = await res.json(); } catch (e) {}
   if (!res.ok) throw new Error((data && data.error) || `エラー ${res.status}`);
   return data;
 }
+
+// ---------- 履歴と選択 ----------
+let history = store.get("history", []);
+history.forEach(b => b.rows.forEach(r => r.outs.forEach(o => { if (!o.id) o.id = uid(); })));
+let selectedId = store.get("selected", null);
+setTimeout(() => saveHistory(), 0); // 古い履歴に付けたidを保存しておく
+function saveHistory() {
+  // 容量を超えたら古いものから落とす
+  for (let n = Math.min(history.length, 30); n > 0; n--) {
+    try { localStorage.setItem("avtool:history", JSON.stringify(history.slice(0, n))); return; } catch (e) {}
+  }
+}
+function findOut(id) {
+  for (const b of history) for (const r of b.rows) for (const o of r.outs) if (o.id === id) return { b, r, o };
+  return null;
+}
+function select(id) {
+  selectedId = id; store.set("selected", id);
+  renderAll();
+  $("#step2").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---------- STEP 1：生成 ----------
+$("#run").onclick = async () => {
+  const { models, variants, n } = plan();
+  running = true; $("#run").disabled = true;
+  const batch = { at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(),
+    rows: photos.map(p => ({ thumb: p.thumb, name: p.name, outs: [] })) };
+  const jobs = [];
+  photos.forEach((p, pi) => {
+    for (const withStyle of variants) for (const m of models) {
+      const out = { id: uid(), model: m.label, style: withStyle, usd: m.usd, state: "run" };
+      batch.rows[pi].outs.push(out);
+      jobs.push({ p, m, withStyle, out });
+    }
+  });
+  history.unshift(batch); latestBatch = batch; renderAll();
+  let done = 0; setStatus(`作成中… 0 / ${n}`);
+  const work = async job => {
+    const t0 = performance.now();
+    try {
+      const images = [job.p.dataUrl].concat(job.withStyle ? [styleUrl] : []);
+      const d = await post("/api/generate", { model: job.m.id, prompt: buildPrompt(job.withStyle), images });
+      if (!d || !d.url) throw new Error("画像が返ってきませんでした");
+      job.out.url = d.url; job.out.state = "ok";
+    } catch (e) { job.out.state = "err"; job.out.error = e.message; }
+    job.out.sec = Math.round((performance.now() - t0) / 100) / 10;
+    done++; setStatus(`作成中… ${done} / ${n}`); renderAll(); saveHistory();
+  };
+  const queue = jobs.slice(); const workers = [];
+  for (let i = 0; i < Math.min(4, queue.length); i++) workers.push((async () => { while (queue.length) await work(queue.shift()); })());
+  await Promise.all(workers);
+  running = false; refresh();
+  const errs = jobs.filter(j => j.out.state === "err");
+  if (errs.length) setStatus(`完了（${errs.length}件失敗：${errs[0].out.error}）`, true);
+  else setStatus("できました。気に入った子の「この子を3Dにする」を押すとSTEP 2に進みます。");
+};
+
+// ---------- STEP 2：3D化 ----------
+const m3dSaved = store.get("m3d", "tripo");
+document.querySelectorAll('input[name=m3d]').forEach(r => { r.checked = r.value === m3dSaved; r.onchange = () => { store.set("m3d", r.value); refresh3d(); }; });
+const m3dNow = () => (document.querySelector('input[name=m3d]:checked') || {}).value || "tripo";
+
+$("#go3d").onclick = () => { const f = findOut(selectedId); if (f) start3d(f.o, m3dNow()); };
 async function start3d(o, model) {
-  o.err3d = null; o.m3d = model;
-  o.job = { started: Date.now() }; renderHistory();
+  o.err3d = null; o.m3d = model; o.glb = null;
+  o.job = { started: Date.now() }; renderAll();
   try {
-    const d = await api3d({ action: "submit", imageUrl: o.url, model });
+    const d = await post("/api/to3d", { action: "submit", imageUrl: o.src3d || o.url, model });
     o.job = { ...o.job, statusUrl: d.statusUrl, responseUrl: d.responseUrl, model };
-    saveHistory(); poll3d(o);
-  } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderHistory(); }
+    delete o.src3d; saveHistory(); poll3d(o);
+  } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderAll(); }
 }
 async function poll3d(o) {
   while (o.job && o.job.statusUrl) {
     await new Promise(r => setTimeout(r, 4000));
+    if (!o.job) return;
     try {
-      const d = await api3d({ action: "check", statusUrl: o.job.statusUrl, responseUrl: o.job.responseUrl, model: o.job.model });
-      if (d.done) { o.glb = d.glb; o.job = null; saveHistory(); renderHistory(); return; }
-    } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderHistory(); return; }
-    if (Date.now() - o.job.started > 10 * 60 * 1000) { o.job = null; o.err3d = "時間がかかりすぎたので止めました。もう一度押してください"; saveHistory(); renderHistory(); return; }
+      const d = await post("/api/to3d", { action: "check", statusUrl: o.job.statusUrl, responseUrl: o.job.responseUrl, model: o.job.model });
+      if (d.done) { o.glb = d.glb; o.job = null; saveHistory(); renderAll(); return; }
+    } catch (e) { o.job = null; o.err3d = e.message; saveHistory(); renderAll(); return; }
+    if (Date.now() - o.job.started > 10 * 60 * 1000) { o.job = null; o.err3d = "時間がかかりすぎたので止めました。もう一度押してください"; saveHistory(); renderAll(); return; }
+    refresh3d();
   }
 }
-
-$("#pick3d").onclick = () => {
-  if (!$("#key").value.trim()) { $("#status3d").textContent = "先に合言葉を入れてください"; return; }
-  $("#file3d").click();
-};
+$("#pick3d").onclick = () => { if (!code()) { $("#status3d").textContent = "先に合言葉を保存してください"; return; } $("#file3d").click(); };
 $("#file3d").onchange = async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   try {
     const raw = await readAsDataURL(f);
-    const url = await shrink(raw, 1024, "image/jpeg", 0.92);
-    const thumb = await shrink(raw, 200, "image/jpeg", 0.8);
-    const o = { model: "手持ちのアバター", style: false, usd: 0, state: "ok", url };
-    history.unshift({ at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(), rows: [{ thumb, name: f.name, outs: [o] }] });
-    $("#status3d").textContent = "3D化を始めました。下の一覧で進み具合が見られます";
-    start3d(o, m3dNow());
-    o.url = await shrink(raw, 400, "image/jpeg", 0.85); // 履歴に保存する分は軽くする
-    setTimeout(() => $("#results").scrollIntoView({ behavior: "smooth" }), 300);
+    const o = { id: uid(), model: "保存した画像", style: false, usd: 0, state: "ok",
+      src3d: await shrink(raw, 1024, "image/jpeg", 0.92), url: await shrink(raw, 400, "image/jpeg", 0.85) };
+    history.unshift({ at: new Date().toLocaleString("ja-JP"), body: $("#body").value, cname: $("#name").value.trim(), rows: [{ thumb: await shrink(raw, 200, "image/jpeg", 0.8), name: f.name, outs: [o] }] });
+    selectedId = o.id; store.set("selected", o.id); saveHistory(); renderAll();
   } catch (err) { $("#status3d").textContent = "画像を読み込めませんでした"; }
 };
+function viewUrl(b, o) { return `view.html?u=${encodeURIComponent(o.glb)}&t=${encodeURIComponent(b.body || "")}&n=${encodeURIComponent(b.cname || "")}`; }
 
-function saveHistory() { store.set("history", history.slice(0, 30)); }
-
-function renderHistory() {
-  const box = $("#results"); box.innerHTML = "";
-  history.forEach((b, bi) => {
-    const wrap = el("div", { class: "batch" }, el("div", { class: "batch-head" }, el("b", {}, b.at), el("span", { class: "muted" }, `写真${b.rows.length}枚`)));
-    for (const r of b.rows) {
-      const outs = el("div", { class: "outs" });
-      for (const o of r.outs) {
-        let media;
-        if (o.state === "run") media = el("div", { class: "img" }, el("div", { class: "spin" }));
-        else if (o.state === "err") media = el("div", { class: "img" }, el("div", { class: "err" }, o.error || "失敗"));
-        else media = el("div", { class: "img" }, el("img", { src: o.url, loading: "lazy", onclick: () => { $("#lbImg").src = o.url; $("#lb").classList.add("on"); } }));
-        const fav = el("button", { class: "fav" + (o.fav ? " on" : ""), title: "お気に入り", onclick: () => { o.fav = !o.fav; saveHistory(); renderHistory(); } }, o.fav ? "♥" : "♡");
-        const dl = o.state === "ok" ? el("button", { class: "fav", title: "保存", onclick: () => download(o.url, `${r.name.replace(/\.[^.]+$/, "")}_${o.model}_${o.style ? "お手本あり" : "お手本なし"}.png`) }, "⤓") : null;
-        const d3 = o.state === "ok" ? render3d(o, b) : null;
-        outs.append(el("div", { class: "out" }, media,
-          el("div", { class: "meta" }, el("span", {}, el("b", {}, o.model), el("br"), el("span", { class: "muted" }, `${o.style ? "お手本あり" : "お手本なし"}・${o.sec != null ? o.sec + "秒・" : ""}${yen(o.usd)}円`)),
-            el("span", {}, fav, dl)), d3));
-      }
-      wrap.append(el("div", { class: "res-row" }, el("div", { class: "orig" }, el("img", { src: r.thumb, title: r.name })), outs));
+function refresh3d() {
+  const f = findOut(selectedId);
+  const img = $("#selImg"), title = $("#selTitle"), go = $("#go3d"), st = $("#status3d"), prog = $("#prog");
+  img.innerHTML = ""; prog.hidden = true; st.textContent = ""; st.classList.remove("err");
+  if (!f || f.o.state !== "ok") {
+    img.className = "sel-img empty"; img.textContent = "STEP 1の結果で「この子を3Dにする」を押してください";
+    title.textContent = "3Dにするアバター：まだ選ばれていません";
+    go.disabled = true; go.textContent = "3Dにする"; go.className = "primary p2";
+  } else {
+    const { b, o } = f;
+    img.className = "sel-img"; img.append(el("img", { src: o.url, alt: "選んだアバター" }));
+    title.textContent = `3Dにするアバター：${b.cname || "名前なし"}（${o.model}${o.style ? "・お手本あり" : ""}）`;
+    const m = m3dNow();
+    if (o.job) {
+      go.disabled = true; go.textContent = "3D化中…";
+      const sec = Math.round((Date.now() - o.job.started) / 1000);
+      prog.hidden = false; $("#progBar").style.width = Math.min(95, sec / 150 * 100) + "%";
+      $("#progText").textContent = `${sec}秒経過（1〜3分ほど）。この画面を開いたままにしてください`;
+    } else {
+      const jp = Math.round(M3D[m].usd * USD_JPY);
+      go.disabled = !code(); go.textContent = o.glb ? `作り直す（${M3D[m].label}・約${jp}円）` : `3Dにする（${M3D[m].label}・約${jp}円）`;
+      go.className = o.glb ? "" : "primary p2";
+      if (o.glb) st.textContent = `できました（${M3D[o.m3d]?.label || ""}）。STEP 3へ進めます`;
+      if (o.err3d) { st.textContent = o.err3d; st.classList.add("err"); }
     }
-    box.append(wrap);
-  });
-  $("#histTools").style.display = history.length ? "flex" : "none";
+  }
+  // STEP 3
+  const ready = f && f.o.glb;
+  $("#tankReady").hidden = !ready; $("#tankWait").hidden = !!ready;
+  if (ready) $("#tankLink").href = viewUrl(f.b, f.o);
+}
+setInterval(() => { const f = findOut(selectedId); if (f && f.o.job) refresh3d(); }, 1000);
+
+// ---------- 描画 ----------
+function outCard(o, b, r) {
+  let media;
+  if (o.state === "run") media = el("div", { class: "img" }, el("div", { class: "spin" }));
+  else if (o.state === "err") media = el("div", { class: "img" }, el("div", { class: "err" }, o.error || "失敗"));
+  else media = el("div", { class: "img" }, el("img", { src: o.url, loading: "lazy", alt: "アバター", onclick: () => { $("#lbImg").src = o.url; $("#lb").classList.add("on"); } }));
+  const fav = el("button", { class: "icon" + (o.fav ? " on" : ""), title: "お気に入り", "aria-label": "お気に入り", onclick: () => { o.fav = !o.fav; saveHistory(); renderAll(); } }, o.fav ? "♥" : "♡");
+  const dl = o.state === "ok" && !o.url.startsWith("data:") ? el("button", { class: "icon", title: "保存", "aria-label": "保存", onclick: () => download(o.url, `${(b.cname || r.name).replace(/\.[^.]+$/, "")}_${o.model}.png`) }, "⤓") : null;
+  const is = o.id === selectedId;
+  const pick = o.state === "ok" ? el("button", { class: "pick" + (is ? " on" : ""), onclick: () => select(o.id) }, is ? "✓ 3Dにする子に選択中" : "この子を3Dにする") : null;
+  const badge = o.glb ? el("span", { class: "badge" }, "3Dあり") : o.job ? el("span", { class: "badge", style: "background:var(--s2)" }, "3D化中") : null;
+  return el("div", { class: "out" + (is ? " sel" : "") }, media,
+    el("div", { class: "meta" }, el("span", {}, el("b", {}, o.model), badge, el("br"),
+      el("span", { class: "muted" }, `${o.style ? "お手本あり" : "お手本なし"}${o.sec != null ? "・" + o.sec + "秒" : ""}${o.usd ? "・" + yen(o.usd) + "円" : ""}`)),
+      el("span", {}, fav, dl)),
+    pick,
+    o.glb ? el("a", { class: "button", href: viewUrl(b, o), style: "width:100%;margin-top:6px;font-size:13px;padding:7px" }, "水槽で見る") : null);
+}
+function batchBlock(b) {
+  const wrap = el("div", {}, el("div", { class: "batch-head" }, el("b", {}, b.at + (b.cname ? "　" + b.cname : "")), el("span", { class: "muted" }, `写真${b.rows.length}枚`)));
+  for (const r of b.rows) {
+    const outs = el("div", { class: "outs" });
+    for (const o of r.outs) outs.append(outCard(o, b, r));
+    wrap.append(el("div", { class: "res-row" }, el("div", { class: "orig" }, el("img", { src: r.thumb, alt: "元の写真" })), outs));
+  }
+  return wrap;
+}
+let latestBatch = null; // このページで作った最新の結果はSTEP 1の下に出す
+function renderAll() {
+  if (latestBatch && !history.includes(latestBatch)) latestBatch = null;
+  const latest = $("#latest"); latest.innerHTML = "";
+  if (latestBatch) { latest.hidden = false; latest.append(batchBlock(latestBatch)); } else latest.hidden = true;
+  const box = $("#history"); box.innerHTML = "";
+  const rest = history.filter(b => b !== latestBatch);
+  for (const b of rest) box.append(el("div", { class: "card" }, batchBlock(b)));
+  $("#histHead").hidden = !rest.length;
+  refresh3d();
 }
 async function download(url, name) {
-  try {
-    const blob = await (await fetch(url)).blob();
-    const a = el("a", { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); a.remove();
-  } catch (e) { window.open(url, "_blank"); }
+  try { const blob = await (await fetch(url)).blob(); const a = el("a", { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); a.remove(); }
+  catch (e) { window.open(url, "_blank"); }
 }
-$("#clearHist").onclick = () => { history = []; saveHistory(); renderHistory(); };
+$("#clearHist").onclick = () => {
+  const keep = history.filter(b => b === latestBatch || b.rows.some(r => r.outs.some(o => o.id === selectedId)));
+  history = keep; saveHistory(); renderAll();
+};
 $("#lb").onclick = () => $("#lb").classList.remove("on");
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("#lb").classList.remove("on"); });
 
-// 前回途中で閉じた「作成中」は失敗扱いにする
+
+// 前回途中で閉じたものの片付けと、3D化の続き
 history.forEach(b => b.rows.forEach(r => r.outs.forEach(o => {
   if (o.state === "run") { o.state = "err"; o.error = "途中で閉じられました"; }
-  if (o.job && o.job.statusUrl) setTimeout(() => poll3d(o), 500);
-  else if (o.job) o.job = null;
+  if (o.job && o.job.statusUrl) setTimeout(() => poll3d(o), 500); else if (o.job) o.job = null;
 })));
-renderHistory(); refresh();
+renderAll(); refresh();
 </script>
 </body>
 </html>
