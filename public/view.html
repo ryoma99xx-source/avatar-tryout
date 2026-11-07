@@ -705,14 +705,50 @@ function makeGnat() { // 小さな羽虫
   for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.CircleGeometry(0.022, 8), wm); w.rotation.x = -Math.PI / 2; w.position.set(0, 0.012, s * 0.02); w.userData.wing = s; g.add(w); }
   g.scale.setScalar(1.6); return g;
 }
-function makeBait() { // 小さな銀色の魚
+function makeBait() { // キビナゴ：細長い紡錘形、背は青、体側に銀青の帯、腹は銀白、二又の尾びれ
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xcfd8e3, metalness: .6, roughness: .3 });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.09, 4, 8), mat); body.rotation.z = Math.PI / 2; g.add(body);
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.035, 4), mat); tail.rotation.z = Math.PI / 2; tail.position.x = -0.07; g.add(tail);
-  const stripe = new THREE.Mesh(new THREE.CapsuleGeometry(0.006, 0.08, 2, 6), new THREE.MeshStandardMaterial({ color: 0x5a8fd0 }));
-  stripe.rotation.z = Math.PI / 2; stripe.position.y = 0.004; stripe.position.z = 0.014; g.add(stripe);
-  g.scale.setScalar(1.7); g.rotation.y = Math.random() * Math.PI * 2; return g;
+  const L = 0.17, R = 0.021;
+  // 体：紡錘形を回転体で作り、横に少し平たくする（長さ方向 = X、頭が +X）
+  const prof = [];
+  for (let i = 0; i <= 14; i++) {
+    const u = i / 14;                                      // 0 = しっぽ側, 1 = 口先
+    // 頭側は丸く、しっぽ側は細くしぼる
+    const r = u > 0.55 ? R * Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.55) / 0.45, 2.4))) : R * Math.pow(Math.sin(Math.PI * u / 1.1), 0.9) * (0.35 + 0.65 * u / 0.55);
+    prof.push(new THREE.Vector2(Math.max(r, 0.002), (u - 0.5) * L));
+  }
+  const bodyGeo = new THREE.LatheGeometry(prof, 18);
+  bodyGeo.rotateZ(-Math.PI / 2); bodyGeo.scale(1, 1, 0.6);
+  const pos = bodyGeo.attributes.position, cols = [], c = new THREE.Color();
+  const back = new THREE.Color(0x2f6a9a), band = new THREE.Color(0x9bd4ff), belly = new THREE.Color(0xf1f5f9);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) / R;                             // -1（腹）〜 1（背）
+    if (y > 0.35) c.copy(back);
+    else if (y > -0.05) c.copy(band).lerp(back, Math.max(0, (y - 0.15) / 0.2));
+    else c.copy(belly);
+    cols.push(c.r, c.g, c.b);
+  }
+  bodyGeo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+  bodyGeo.computeVertexNormals();
+  const body = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.45, roughness: 0.28 }));
+  g.add(body);
+  // 尾びれ：二又
+  const ts = new THREE.Shape();
+  ts.moveTo(0.004, 0); ts.lineTo(-0.05, 0.034); ts.quadraticCurveTo(-0.034, 0, -0.05, -0.034); ts.lineTo(0.004, 0);
+  const finMat = new THREE.MeshStandardMaterial({ color: 0xc9dceb, transparent: true, opacity: 0.85, side: THREE.DoubleSide, metalness: 0.2, roughness: 0.4 });
+  const tail = new THREE.Mesh(new THREE.ShapeGeometry(ts), finMat);
+  const tailPivot = new THREE.Group(); tailPivot.position.x = -L / 2 + 0.006; tailPivot.add(tail); g.add(tailPivot);
+  // 背びれ
+  const ds = new THREE.Shape(); ds.moveTo(0.012, 0); ds.lineTo(-0.008, 0.016); ds.lineTo(-0.016, 0); ds.lineTo(0.012, 0);
+  const dorsal = new THREE.Mesh(new THREE.ShapeGeometry(ds), finMat); dorsal.position.set(-0.005, R * 0.92, 0); g.add(dorsal);
+  // 目：白目に黒目
+  for (const sd of [-1, 1]) {
+    const white = new THREE.Mesh(new THREE.SphereGeometry(0.0052, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }));
+    white.position.set(L / 2 - 0.024, 0.004, sd * R * 0.38); g.add(white);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.0032, 10, 8), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 }));
+    pupil.position.set(L / 2 - 0.023, 0.004, sd * (R * 0.38 + 0.0028)); g.add(pupil);
+  }
+  g.userData.tail = tailPivot;
+  g.scale.setScalar(1.6); g.rotation.y = Math.random() * Math.PI * 2; return g;
 }
 function makeLeaf() {
   const s = new THREE.Shape(); s.moveTo(0, -0.12); s.quadraticCurveTo(0.09, 0, 0, 0.12); s.quadraticCurveTo(-0.09, 0, 0, -0.12);
@@ -757,6 +793,7 @@ function updateFoods(dt, t) {
       f.mesh.position.y -= f.kind.sink * dt;
       if (f.kind === FOODS.fish) { f.mesh.position.x += Math.sin(t * 2 + f.sway) * 0.002; f.mesh.rotation.x += dt * 1.5; }
       if (f.kind === FOODS.baitfish) { f.mesh.position.x += Math.sin(t * 1.5 + f.sway) * 0.004; f.mesh.rotation.y += Math.sin(t * 3 + f.sway) * 0.02; }
+      if (f.mesh.userData.tail) f.mesh.userData.tail.rotation.y = Math.sin(t * 14 + f.sway) * 0.5; // 尾びれをぴくぴく
       if (f.mesh.position.y <= y0) { f.mesh.position.y = y0; f.landed = true; if (f.kind === FOODS.baitfish) f.life = Math.min(f.life, 4); }
     }
     if (f.landed && f.mesh.userData.hop && Math.random() < dt * 0.6) f.mesh.position.x += (Math.random() - .5) * 0.15;
